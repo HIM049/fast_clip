@@ -16,7 +16,7 @@ pub struct MyApp {
 impl MyApp {
     pub fn new(cx: &mut Context<Self>, size_entity: Entity<PlayerSize>) -> Self {
         let title_bar = cx.new(|cx| AppTitleBar::new("EzClip", cx));
-        let frame: Vec<u8> = vec![100, 100, 100, 255];
+        let frame: Vec<u8> = vec![0, 0, 0, 0];
         Self {
             size: size_entity.clone(),
             title_bar,
@@ -29,8 +29,8 @@ impl MyApp {
         self.decoder.open(cx, "./t.mp4".into()).unwrap();
 
         self.frame = self.decoder.run(cx).unwrap();
+        println!("length of returned frame {}", self.frame.len());
         // let buff = RgbaImage::from_raw(vd.width, vd.height, vd.frame).unwrap();
-        println!("frame len: {}", self.frame.len());
 
         cx.notify();
     }

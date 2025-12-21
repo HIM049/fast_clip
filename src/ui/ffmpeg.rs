@@ -66,11 +66,13 @@ impl VideoDecoder {
         let Some(decoder) = self.decoder.as_mut() else {
             return None;
         };
-        let output_size = self.size.read(cx);
+        // let output_size = self.size.read(cx);
         let src_w = decoder.width();
         let src_h = decoder.height();
-        let dst_w = output_size.output_size().0;
-        let dst_h = output_size.output_size().1;
+        let dst_w = decoder.width();
+        let dst_h = decoder.height();
+        // let dst_w = output_size.output_size().0;
+        // let dst_h = output_size.output_size().1;
 
         let mut decoded_frame = ffmpeg_next::frame::Video::empty();
         let mut scaled_frame = ffmpeg_next::frame::Video::new(format::Pixel::RGBA, dst_w, dst_h);
@@ -87,19 +89,24 @@ impl VideoDecoder {
         )
         .unwrap();
 
+        // println!("packets {}", input.packets().count());
+
         // get packet
         for (stream, packet) in input.packets() {
+            println!("into stream_ix {}", stream.index());
             // check whether stream index is target viedo
             if stream.index() != self.stream_ix {
                 continue;
             }
             // try to send packet to decoder
             if decoder.send_packet(&packet).is_err() {
+                println!("send packet");
                 return None;
             }
 
             // try receive decoder
             if decoder.receive_frame(&mut decoded_frame).is_ok() {
+                println!("received frame {}", stream.index());
                 scaler_context
                     .run(&decoded_frame, &mut scaled_frame)
                     .unwrap();
