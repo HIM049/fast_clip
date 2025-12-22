@@ -11,8 +11,7 @@ mod ui;
 
 actions!([Quit, About]);
 
-#[tokio::main]
-async fn main() {
+fn main() {
     ffmpeg_next::init().unwrap();
 
     let http = reqwest_client::ReqwestClient::user_agent(

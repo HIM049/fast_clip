@@ -9,7 +9,7 @@ use gpui_component::{
     ActiveTheme, Icon, IconName, InteractiveElementExt, Sizable, h_flex, menu::AppMenuBar,
 };
 
-use crate::components::app_menu::{self, init};
+use crate::components::app_menu::{self};
 
 pub const TITLE_BAR_HEIGHT: Pixels = px(34.);
 #[cfg(target_os = "macos")]

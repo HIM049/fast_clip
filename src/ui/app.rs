@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use async_channel::Receiver;
 use gpui::{AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
@@ -10,13 +13,13 @@ pub struct MyApp {
     size: Entity<PlayerSize>,
     title_bar: Entity<AppTitleBar>,
     decoder: VideoDecoder,
-    frame: Vec<u8>,
+    pub frame: Arc<Vec<u8>>,
 }
 
 impl MyApp {
     pub fn new(cx: &mut Context<Self>, size_entity: Entity<PlayerSize>) -> Self {
         let title_bar = cx.new(|cx| AppTitleBar::new("EzClip", cx));
-        let frame: Vec<u8> = vec![0, 0, 0, 0];
+        let frame: Arc<Vec<u8>> = Arc::new(vec![0, 0, 0, 0]);
         Self {
             size: size_entity.clone(),
             title_bar,
@@ -26,13 +29,32 @@ impl MyApp {
     }
 
     pub fn run(&mut self, cx: &mut Context<Self>) {
-        self.decoder.open(cx, "./t.mp4".into()).unwrap();
+        self.decoder
+            .open(
+                cx,
+                "D:/Videos/Records/Apex Legends 2024.05.04 - 18.07.10.04.DVR.mp4".into(),
+            )
+            .unwrap();
 
-        self.frame = self.decoder.run(cx).unwrap();
-        println!("length of returned frame {}", self.frame.len());
+        let rx = self.decoder.run();
+        self.listen_frame(cx, rx);
+        println!("DEBUG: length of returned frame {}", self.frame.len());
         // let buff = RgbaImage::from_raw(vd.width, vd.height, vd.frame).unwrap();
 
         cx.notify();
+    }
+
+    pub fn listen_frame(&self, cx: &mut Context<Self>, rx: Receiver<Arc<Vec<u8>>>) {
+        cx.spawn(async move |weak, cx| {
+            while let Ok(frame) = rx.recv().await {
+                weak.update(cx, |app, cx| {
+                    app.frame = frame;
+                    cx.notify();
+                })
+                .unwrap();
+            }
+        })
+        .detach();
     }
 }
 
