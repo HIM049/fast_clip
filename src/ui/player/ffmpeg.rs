@@ -1,4 +1,12 @@
-use std::{path::PathBuf, thread, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use ffmpeg_next::{
@@ -29,6 +37,8 @@ pub struct VideoDecoder {
 
     producer: Option<HeapProd<FrameImage>>,
     size: Entity<PlayerSize>,
+
+    pub need_stop: Arc<AtomicBool>,
 }
 
 impl VideoDecoder {
@@ -43,6 +53,8 @@ impl VideoDecoder {
 
             producer: None,
             size: size_entity,
+
+            need_stop: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -119,6 +131,8 @@ impl VideoDecoder {
         let mut decoded_frame = ffmpeg_next::frame::Video::new(decoder.format(), w, h);
         let mut scaled_frame = ffmpeg_next::frame::Video::new(format::Pixel::BGRA, w, h);
 
+        let need_stop = self.need_stop.clone();
+
         thread::spawn(move || {
             let mut scaler_context = ffmpeg_next::software::scaling::Context::get(
                 decoder.format(),
@@ -134,6 +148,9 @@ impl VideoDecoder {
             let mut frame_buf: Option<FrameImage> = None;
 
             loop {
+                if need_stop.load(Ordering::Relaxed) {
+                    break;
+                }
                 let mut buffer = Vec::with_capacity((w * h * 4) as usize);
 
                 if frame_buf.is_none() {

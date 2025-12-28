@@ -5,14 +5,16 @@ use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
 use crate::{
     components::app_title_bar::AppTitleBar,
-    ui::player::{player::Player, player_size::PlayerSize},
+    ui::player::{
+        player::{PlayState, Player},
+        player_size::PlayerSize,
+    },
 };
 
 pub struct MyApp {
     title_bar: Entity<AppTitleBar>,
     player: Player,
     pub frame: Arc<Vec<u8>>,
-    is_playing: bool,
 }
 
 impl MyApp {
@@ -24,7 +26,6 @@ impl MyApp {
             title_bar,
             player: Player::new(size_entity),
             frame,
-            is_playing: false,
         }
     }
 
@@ -35,7 +36,6 @@ impl MyApp {
 
     pub fn run(&mut self, cx: &mut Context<Self>) {
         println!("DEBUG: length of returned frame {}", self.frame.len());
-        self.is_playing = true;
         self.player.start_play(cx);
 
         cx.notify();
@@ -45,7 +45,7 @@ impl MyApp {
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         cx.on_next_frame(window, |this, _, cx| {
-            if this.is_playing {
+            if this.player.get_state() == PlayState::Playing {
                 cx.notify();
             }
         });
@@ -88,6 +88,24 @@ impl Render for MyApp {
                             .child(Button::new("run").child("Run").on_click(cx.listener(
                                 |this, _, _, cx| {
                                     this.run(cx);
+                                },
+                            )))
+                            .child(Button::new("pause").child("Pause").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.player.pause_play();
+                                    cx.notify();
+                                },
+                            )))
+                            .child(Button::new("resume").child("Resume").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.player.resume_play();
+                                    cx.notify();
+                                },
+                            )))
+                            .child(Button::new("stop").child("Stop").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.player.stop_play();
+                                    cx.notify();
                                 },
                             ))),
                     ),
