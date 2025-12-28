@@ -1,13 +1,12 @@
-use std::{sync::Arc, vec};
+use std::sync::Arc;
 
 use gpui::{
-    Bounds, Context, Corners, Element, Entity, IntoElement, LayoutId, Pixels, Point, RenderImage,
-    Size, Style, px, relative,
+    Bounds, Corners, Element, Entity, IntoElement, LayoutId, Pixels, Point, RenderImage, Size,
+    Style, px, relative,
 };
 use gpui_component::PixelsExt;
-use image::RgbaImage;
 
-use crate::ui::{app::MyApp, player_size::PlayerSize};
+use crate::ui::player::player_size::PlayerSize;
 
 pub struct Viewer {
     size: Entity<PlayerSize>,
@@ -15,35 +14,10 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    pub fn new(
-        cx: &mut Context<MyApp>,
-        frame: Arc<Vec<u8>>,
-        size_entity: Entity<PlayerSize>,
-    ) -> Self {
-        let size = size_entity.read(cx);
-
+    pub fn new(frame: Arc<RenderImage>, size_entity: Entity<PlayerSize>) -> Self {
         Self {
             size: size_entity,
-            frame: Self::generate_image_fallback(
-                (size.orignal_size().0, size.orignal_size().1),
-                frame.to_vec(),
-            ),
-        }
-    }
-
-    fn generate_image_fallback(size: (u32, u32), frame: Vec<u8>) -> Arc<RenderImage> {
-        let frame_len = frame.len();
-
-        if let Some(buff) = RgbaImage::from_vec(size.0, size.1, frame) {
-            let frame_img = image::Frame::new(buff);
-            Arc::new(RenderImage::new(vec![frame_img]))
-        } else {
-            println!(
-                "DEBUG: fallbacked: frame len {}, size {:?}",
-                frame_len, size
-            );
-            let frame = vec![0, 0, 0, 0].repeat((size.0 * size.1) as usize);
-            Self::generate_image_fallback(size, frame)
+            frame,
         }
     }
 }

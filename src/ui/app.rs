@@ -1,66 +1,56 @@
 use std::sync::Arc;
 
-use async_channel::Receiver;
 use gpui::{AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
 use crate::{
     components::app_title_bar::AppTitleBar,
-    ui::{ffmpeg::VideoDecoder, player_size::PlayerSize, viewer::Viewer},
+    ui::player::{player::Player, player_size::PlayerSize},
 };
 
 pub struct MyApp {
     size: Entity<PlayerSize>,
     title_bar: Entity<AppTitleBar>,
-    decoder: VideoDecoder,
+    player: Player,
     pub frame: Arc<Vec<u8>>,
+    is_playing: bool,
 }
 
 impl MyApp {
     pub fn new(cx: &mut Context<Self>, size_entity: Entity<PlayerSize>) -> Self {
         let title_bar = cx.new(|cx| AppTitleBar::new("EzClip", cx));
         let frame: Arc<Vec<u8>> = Arc::new(vec![0, 0, 0, 0]);
+
         Self {
             size: size_entity.clone(),
             title_bar,
-            decoder: VideoDecoder::new(size_entity),
+            player: Player::new(size_entity),
             frame,
+            is_playing: false,
         }
     }
 
-    pub fn run(&mut self, cx: &mut Context<Self>) {
-        self.decoder
-            .open(
-                cx,
-                "D:/Videos/Records/Apex Legends 2024.05.04 - 18.07.10.04.DVR.mp4".into(),
-            )
-            .unwrap();
-
-        let rx = self.decoder.run();
-        self.listen_frame(cx, rx);
+    pub fn open(&mut self, cx: &mut Context<Self>) {
         println!("DEBUG: length of returned frame {}", self.frame.len());
-        // let buff = RgbaImage::from_raw(vd.width, vd.height, vd.frame).unwrap();
-
-        cx.notify();
+        self.player.open(cx);
     }
 
-    pub fn listen_frame(&self, cx: &mut Context<Self>, rx: Receiver<Arc<Vec<u8>>>) {
-        cx.spawn(async move |weak, cx| {
-            while let Ok(frame) = rx.recv().await {
-                weak.update(cx, |app, cx| {
-                    app.frame = frame;
-                    cx.notify();
-                })
-                .unwrap();
-            }
-        })
-        .detach();
+    pub fn run(&mut self, cx: &mut Context<Self>) {
+        println!("DEBUG: length of returned frame {}", self.frame.len());
+        self.is_playing = true;
+        self.player.start_play(cx);
+
+        cx.notify();
     }
 }
 
 impl Render for MyApp {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let v = Viewer::new(cx, self.frame.clone(), self.size.clone());
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        cx.on_next_frame(window, |this, _, cx| {
+            if this.is_playing {
+                cx.notify();
+            }
+        });
 
         div()
             .bg(cx.theme().background)
@@ -80,7 +70,7 @@ impl Render for MyApp {
                             .items_center()
                             .size_full()
                             .debug_blue()
-                            .child(v),
+                            .child(self.player.view()),
                     )
                     .child(
                         // control zone
@@ -91,6 +81,12 @@ impl Render for MyApp {
                             .items_center()
                             .w_full()
                             .h_1_3()
+                            .gap_2()
+                            .child(Button::new("open").child("Open").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.open(cx);
+                                },
+                            )))
                             .child(Button::new("run").child("Run").on_click(cx.listener(
                                 |this, _, _, cx| {
                                     this.run(cx);
