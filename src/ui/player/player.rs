@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, atomic::Ordering},
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 
 use gpui::{Context, Entity, RenderImage, Window};
 use ringbuf::{
@@ -13,12 +10,15 @@ use ringbuf::{
 use crate::ui::{
     app::MyApp,
     player::{
-        ffmpeg::VideoDecoder, frame::FrameImage, player_size::PlayerSize,
-        utils::generate_image_fallback, viewer::Viewer,
+        ffmpeg::{DecoderEvent, VideoDecoder},
+        frame::{FrameAction, FrameImage},
+        player_size::PlayerSize,
+        utils::generate_image_fallback,
+        viewer::Viewer,
     },
 };
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum PlayState {
     Playing,
     Paused,
@@ -80,7 +80,16 @@ impl Player {
         self.start_time = None;
         self.frame = generate_image_fallback((1, 1), vec![]);
         self.frame_buf = None;
-        self.decoder.need_stop.store(true, Ordering::Relaxed);
+        self.decoder.set_event(DecoderEvent::Stop);
+    }
+
+    pub fn set_playtime<F>(&mut self, update_fn: F)
+    where
+        F: Fn(f32) -> f32,
+    {
+        self.pause_timer();
+        let now = self.played_time.unwrap_or(0.);
+        self.played_time = Some(update_fn(now));
     }
 
     pub fn get_state(&self) -> PlayState {
@@ -98,15 +107,15 @@ impl Player {
         }
     }
 
-    fn compare_time(&mut self, frame_pts: u64) -> bool {
+    fn compare_time(&mut self, frame_pts: u64) -> FrameAction {
         if self.start_time.is_none() {
             self.start_time = Some(std::time::Instant::now());
         }
         let Some(time) = self.start_time else {
-            return false;
+            return FrameAction::Wait;
         };
         let Some(time_base) = self.decoder.get_timebase() else {
-            return false;
+            return FrameAction::Wait;
         };
 
         let play_time = time.elapsed().as_secs_f32() + self.played_time.unwrap_or(0.);
@@ -119,25 +128,51 @@ impl Player {
             );
         }
 
-        frame_time <= play_time
+        if (play_time - frame_time).abs() <= 0.3 {
+            if frame_time <= play_time {
+                FrameAction::Render
+            } else {
+                FrameAction::Wait
+            }
+        } else {
+            FrameAction::ReSeek(play_time)
+        }
     }
 
     pub fn view(&mut self, w: &mut Window) -> Viewer {
+        // whether need to play next frames when need
         if self.state == PlayState::Playing {
+            // if buffer is not none, clear it first
             if let Some(fb) = self.frame_buf.take() {
-                if self.compare_time(fb.pts) {
-                    w.drop_image(self.frame.clone()).unwrap();
-                    self.frame = fb.image;
-                } else {
-                    self.frame_buf = Some(fb);
+                match self.compare_time(fb.pts) {
+                    FrameAction::Wait => {
+                        self.frame_buf = Some(fb);
+                    }
+                    FrameAction::Render => {
+                        w.drop_image(self.frame.clone()).unwrap();
+                        self.frame = fb.image;
+                    }
+                    FrameAction::ReSeek(t) => {
+                        self.decoder.set_event(DecoderEvent::Seek(t));
+                        w.drop_image(fb.image).unwrap();
+                        self.consumer.clear();
+                    }
                 }
             } else {
                 if let Some(f) = self.consumer.try_pop() {
-                    if self.compare_time(f.pts) {
-                        w.drop_image(self.frame.clone()).unwrap();
-                        self.frame = f.image;
-                    } else {
-                        self.frame_buf = Some(f);
+                    match self.compare_time(f.pts) {
+                        FrameAction::Wait => {
+                            self.frame_buf = Some(f);
+                        }
+                        FrameAction::Render => {
+                            w.drop_image(self.frame.clone()).unwrap();
+                            self.frame = f.image;
+                        }
+                        FrameAction::ReSeek(t) => {
+                            self.decoder.set_event(DecoderEvent::Seek(t));
+                            w.drop_image(f.image).unwrap();
+                            self.consumer.clear();
+                        }
                     }
                 }
             }

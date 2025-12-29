@@ -1,9 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -12,7 +9,7 @@ use anyhow::anyhow;
 use ffmpeg_next::{
     Rational,
     codec::{self},
-    decoder,
+    decoder::{self},
     format::{self, context},
     software::scaling::{self},
 };
@@ -27,6 +24,13 @@ use crate::ui::{
     player::{frame::FrameImage, player_size::PlayerSize, utils::generate_image_fallback},
 };
 
+pub enum DecoderEvent {
+    None,
+    Stop,
+    Pause,
+    Seek(f32),
+}
+
 pub struct VideoDecoder {
     input: Option<context::Input>,
     video_stream_ix: usize,
@@ -38,10 +42,11 @@ pub struct VideoDecoder {
     producer: Option<HeapProd<FrameImage>>,
     size: Entity<PlayerSize>,
 
-    pub need_stop: Arc<AtomicBool>,
+    pub event: Arc<Mutex<DecoderEvent>>,
 }
 
 impl VideoDecoder {
+    /// Create a new Decoder
     pub fn new(size_entity: Entity<PlayerSize>) -> Self {
         Self {
             input: None,
@@ -54,19 +59,28 @@ impl VideoDecoder {
             producer: None,
             size: size_entity,
 
-            need_stop: Arc::new(AtomicBool::new(false)),
+            event: Arc::new(Mutex::new(DecoderEvent::None)),
         }
     }
 
+    /// set producer of ringbuf in VideoDecoder
     pub fn set_producer(mut self, p: HeapProd<FrameImage>) -> Self {
         self.producer = Some(p);
         self
     }
 
+    /// set DecoderEvent
+    pub fn set_event(&mut self, new: DecoderEvent) {
+        let mut event = self.event.lock().unwrap();
+        *event = new;
+    }
+
+    /// get video timebase
     pub fn get_timebase(&self) -> Option<Rational> {
         self.time_base
     }
 
+    /// open a video file
     pub fn open(&mut self, cx: &mut Context<MyApp>, path: PathBuf) -> anyhow::Result<()> {
         let i = ffmpeg_next::format::input(&path)?;
 
@@ -110,6 +124,7 @@ impl VideoDecoder {
         Ok(())
     }
 
+    /// spawn decoder thread
     pub fn spawn_decoder(&mut self, size: Entity<PlayerSize>, cx: &mut Context<MyApp>) {
         let Some(mut input) = self.input.take() else {
             return;
@@ -127,13 +142,10 @@ impl VideoDecoder {
 
         let w = decoder.width();
         let h = decoder.height();
-
-        let mut decoded_frame = ffmpeg_next::frame::Video::new(decoder.format(), w, h);
-        let mut scaled_frame = ffmpeg_next::frame::Video::new(format::Pixel::BGRA, w, h);
-
-        let need_stop = self.need_stop.clone();
+        let event = self.event.clone();
 
         thread::spawn(move || {
+            // init ffmpeg scaler
             let mut scaler_context = ffmpeg_next::software::scaling::Context::get(
                 decoder.format(),
                 w,
@@ -145,14 +157,36 @@ impl VideoDecoder {
             )
             .unwrap();
 
+            // frame buffer
             let mut frame_buf: Option<FrameImage> = None;
+            // frame varible
+            let mut decoded_frame = ffmpeg_next::frame::Video::new(decoder.format(), w, h);
+            let mut scaled_frame = ffmpeg_next::frame::Video::new(format::Pixel::BGRA, w, h);
 
             loop {
-                if need_stop.load(Ordering::Relaxed) {
-                    break;
+                {
+                    // handle decoder event
+                    let mut event = event.lock().unwrap();
+                    match *event {
+                        DecoderEvent::None => (),
+                        DecoderEvent::Stop => break,
+                        DecoderEvent::Pause => {
+                            thread::sleep(Duration::from_millis(20));
+                            continue;
+                        }
+                        DecoderEvent::Seek(t) => {
+                            let ts = (1_000_000 as f32 * t) as i64;
+                            if let Err(e) = input.seek(ts, ..ts) {
+                                println!("DEBUG: failed when seek: {}", e);
+                                continue;
+                            }
+                            decoder.flush();
+                        }
+                    }
+                    *event = DecoderEvent::None;
                 }
-                let mut buffer = Vec::with_capacity((w * h * 4) as usize);
 
+                let mut buffer = Vec::with_capacity((w * h * 4) as usize);
                 if frame_buf.is_none() {
                     // read packets
                     if let Some((stream, packet)) = input.packets().next() {
@@ -163,7 +197,7 @@ impl VideoDecoder {
                                 return;
                             }
                         } else if stream.index() == audio_ix {
-                            // channel send
+                            // TODO: channel send
                         }
                     } else {
                         break;

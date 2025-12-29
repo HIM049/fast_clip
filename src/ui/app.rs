@@ -14,30 +14,24 @@ use crate::{
 pub struct MyApp {
     title_bar: Entity<AppTitleBar>,
     player: Player,
-    pub frame: Arc<Vec<u8>>,
 }
 
 impl MyApp {
     pub fn new(cx: &mut Context<Self>, size_entity: Entity<PlayerSize>) -> Self {
         let title_bar = cx.new(|cx| AppTitleBar::new("EzClip", cx));
-        let frame: Arc<Vec<u8>> = Arc::new(vec![0, 0, 0, 0]);
 
         Self {
             title_bar,
             player: Player::new(size_entity),
-            frame,
         }
     }
 
     pub fn open(&mut self, cx: &mut Context<Self>) {
-        println!("DEBUG: length of returned frame {}", self.frame.len());
         self.player.open(cx);
     }
 
     pub fn run(&mut self, cx: &mut Context<Self>) {
-        println!("DEBUG: length of returned frame {}", self.frame.len());
         self.player.start_play(cx);
-
         cx.notify();
     }
 }
@@ -105,6 +99,18 @@ impl Render for MyApp {
                             .child(Button::new("stop").child("Stop").on_click(cx.listener(
                                 |this, _, _, cx| {
                                     this.player.stop_play();
+                                    cx.notify();
+                                },
+                            )))
+                            .child(Button::new("min").child("-10s").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.player.set_playtime(|now| 0f32.max(now - 10.));
+                                    cx.notify();
+                                },
+                            )))
+                            .child(Button::new("plus").child("+10s").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.player.set_playtime(|now| now + 10.);
                                     cx.notify();
                                 },
                             ))),
