@@ -3,9 +3,8 @@ use std::{path::PathBuf, sync::Arc};
 use gpui::*;
 use gpui_component::*;
 
-use crate::ui::{app::MyApp, player::player_size::PlayerSize};
+use crate::ui::{about::AboutView, app::MyApp, player::player_size::PlayerSize};
 use reqwest_client;
-// mod service;
 mod components;
 mod ui;
 
@@ -15,7 +14,7 @@ fn main() {
     ffmpeg_next::init().unwrap();
 
     let http = reqwest_client::ReqwestClient::user_agent(
-        format!("Picargo/{}", env!("CARGO_PKG_VERSION")).as_str(),
+        format!("Eazycut/{}", env!("CARGO_PKG_VERSION")).as_str(),
     )
     .unwrap();
 
@@ -29,6 +28,9 @@ fn main() {
         let size_entity = cx.new(|_cx| PlayerSize::new());
 
         cx.set_http_client(Arc::new(http));
+        cx.on_action(|_: &Quit, cx| {
+            cx.quit();
+        });
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
@@ -41,6 +43,7 @@ fn main() {
                     appears_transparent: true,
                     traffic_light_position: Some(gpui::point(px(9.0), px(9.0))),
                 }),
+                show: true,
                 ..Default::default()
             },
             |window, cx| {
@@ -49,6 +52,33 @@ fn main() {
             },
         )
         .unwrap();
+
+        cx.on_action(|_: &About, cx| {
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
+                        None,
+                        size(px(400.), px(300.)),
+                        cx,
+                    ))),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("About".into()),
+                        appears_transparent: false,
+                        traffic_light_position: None,
+                    }),
+                    focus: true,
+                    show: true,
+                    is_resizable: false,
+                    is_minimizable: false,
+                    ..Default::default()
+                },
+                |window, cx| {
+                    let view = cx.new(|_| AboutView);
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
+            )
+            .unwrap();
+        });
 
         // cx.spawn(async move |acx| {
         //     acx.open_window(WindowOptions::default(), |window, cx| {

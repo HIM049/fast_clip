@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use gpui::{AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
