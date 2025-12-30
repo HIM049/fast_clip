@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
 };
@@ -24,6 +24,7 @@ use crate::ui::{
     player::{frame::FrameImage, player_size::PlayerSize, utils::generate_image_fallback},
 };
 
+#[derive(Debug)]
 pub enum DecoderEvent {
     None,
     Stop,
@@ -42,7 +43,8 @@ pub struct VideoDecoder {
     producer: Option<HeapProd<FrameImage>>,
     size: Entity<PlayerSize>,
 
-    pub event: Arc<Mutex<DecoderEvent>>,
+    event: Arc<Mutex<DecoderEvent>>,
+    condvar: Arc<Condvar>,
 }
 
 impl VideoDecoder {
@@ -60,6 +62,7 @@ impl VideoDecoder {
             size: size_entity,
 
             event: Arc::new(Mutex::new(DecoderEvent::None)),
+            condvar: Arc::new(Condvar::new()),
         }
     }
 
@@ -73,6 +76,7 @@ impl VideoDecoder {
     pub fn set_event(&mut self, new: DecoderEvent) {
         let mut event = self.event.lock().unwrap();
         *event = new;
+        self.condvar.notify_all();
     }
 
     /// get video timebase
@@ -143,6 +147,7 @@ impl VideoDecoder {
         let w = decoder.width();
         let h = decoder.height();
         let event = self.event.clone();
+        let condvar = self.condvar.clone();
 
         thread::spawn(move || {
             // init ffmpeg scaler
@@ -171,7 +176,7 @@ impl VideoDecoder {
                         DecoderEvent::None => (),
                         DecoderEvent::Stop => break,
                         DecoderEvent::Pause => {
-                            thread::sleep(Duration::from_millis(20));
+                            event = condvar.wait(event).unwrap();
                             continue;
                         }
                         DecoderEvent::Seek(t) => {

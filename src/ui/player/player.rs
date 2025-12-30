@@ -68,10 +68,12 @@ impl Player {
 
     pub fn resume_play(&mut self) {
         self.state = PlayState::Playing;
+        self.decoder.set_event(DecoderEvent::None);
     }
 
     pub fn pause_play(&mut self) {
         self.state = PlayState::Paused;
+        self.decoder.set_event(DecoderEvent::Pause);
         self.pause_timer();
     }
 

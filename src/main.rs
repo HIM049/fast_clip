@@ -101,6 +101,6 @@ fn init_theme(cx: &mut App) {
             Theme::global_mut(cx).apply_config(&theme);
         }
     }) {
-        println!("error: {}", err);
+        println!("error when init theme: {}", err);
     }
 }
