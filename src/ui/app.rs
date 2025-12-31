@@ -46,7 +46,7 @@ impl MyApp {
     }
 
     fn play_percent(&self) -> f32 {
-        self.player.get_progress().unwrap_or(0.)
+        self.player.play_percentage().unwrap_or(0.)
     }
 }
 
@@ -75,7 +75,8 @@ impl Render for MyApp {
                             .justify_center()
                             .items_center()
                             .size_full()
-                            .debug_blue()
+                            .border_1()
+                            .border_color(cx.theme().border)
                             .child(self.player.view(window)),
                     )
                     .child(
@@ -88,84 +89,85 @@ impl Render for MyApp {
 
 fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
     let play_state = this.player.get_state();
+    let weak = cx.weak_entity();
 
     div()
         .flex()
         .v_flex()
-        .justify_center()
         .w_full()
         .h_1_3()
-        .debug_green()
+        .border_1()
+        .border_color(cx.theme().border)
         .child(
             div()
                 .flex()
-                .v_flex()
+                .w_full()
+                // .debug_pink()
+                .child(
+                    Timeline::new("process", this.play_percent()).on_click(move |pct, cx| {
+                        weak.update(cx, |this, _| {
+                            this.player.set_playtime(|_, dur| dur * pct);
+                        })
+                        .unwrap();
+                    }),
+                ),
+        )
+        .child(
+            div()
+                .flex()
                 .justify_center()
                 .items_center()
+                .h_full()
+                .w_full()
                 .gap_2()
-                .child(Timeline::new(this.play_percent()))
-                .child(
-                    div()
-                        .flex()
-                        .flex_shrink_0()
-                        .justify_center()
-                        .items_center()
-                        .h_1_2()
-                        .w_full()
-                        .gap_2()
-                        .when(play_state == PlayState::Stopped, |this| {
-                            this.child(Button::new("open").child("Open").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.open(cx);
-                                },
-                            )))
-                            .child(
-                                Button::new("run").child("Run").on_click(cx.listener(
-                                    |this, _, _, cx| {
-                                        this.run(cx);
-                                    },
-                                )),
-                            )
-                        })
-                        .when(play_state == PlayState::Playing, |this| {
-                            this.child(Button::new("pause").child("Pause").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.player.pause_play();
-                                    cx.notify();
-                                },
-                            )))
-                        })
-                        .when(play_state == PlayState::Paused, |this| {
-                            this.child(Button::new("resume").child("Resume").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.player.resume_play();
-                                    cx.notify();
-                                },
-                            )))
-                        })
-                        .when(play_state != PlayState::Stopped, |this| {
-                            this.child(Button::new("stop").child("Stop").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.new_player();
-                                    cx.notify()
-                                },
-                            )))
-                            .child(Button::new("min").child("-10s").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.player.set_playtime(|now| 0f32.max(now - 10.));
-                                    cx.notify();
-                                },
-                            )))
-                            .child(
-                                Button::new("plus").child("+10s").on_click(cx.listener(
-                                    |this, _, _, cx| {
-                                        this.player.set_playtime(|now| now + 10.);
-                                        cx.notify();
-                                    },
-                                )),
-                            )
-                        }),
-                ),
+                .when(play_state == PlayState::Stopped, |this| {
+                    this.child(Button::new("open").child("Open").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.open(cx);
+                        },
+                    )))
+                    .child(Button::new("run").child("Run").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.run(cx);
+                        },
+                    )))
+                })
+                .when(play_state == PlayState::Playing, |this| {
+                    this.child(Button::new("pause").child("Pause").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.player.pause_play();
+                            cx.notify();
+                        },
+                    )))
+                })
+                .when(play_state == PlayState::Paused, |this| {
+                    this.child(Button::new("resume").child("Resume").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.player.resume_play();
+                            cx.notify();
+                        },
+                    )))
+                })
+                .when(play_state != PlayState::Stopped, |this| {
+                    this.child(Button::new("stop").child("Stop").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.new_player();
+                            cx.notify()
+                        },
+                    )))
+                    .child(Button::new("min").child("-10s").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.player.set_playtime(|now, _| 0f32.max(now - 10.));
+                            cx.notify();
+                        },
+                    )))
+                    .child(Button::new("plus").child("+10s").on_click(cx.listener(
+                        |this, _, _, cx| {
+                            this.player.set_playtime(|now, _| now + 10.);
+                            cx.notify();
+                        },
+                    )))
+                }),
         )
         .into_any_element()
 }

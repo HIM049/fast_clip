@@ -87,18 +87,19 @@ impl Player {
 
     pub fn set_playtime<F>(&mut self, update_fn: F)
     where
-        F: Fn(f32) -> f32,
+        F: Fn(f32, f32) -> f32,
     {
         self.pause_timer();
         let now = self.played_time.unwrap_or(0.);
-        self.played_time = Some(update_fn(now));
+        let dur_sec = self.duration_sec().unwrap_or(0.);
+        self.played_time = Some(update_fn(now, dur_sec));
     }
 
     pub fn get_state(&self) -> PlayState {
         self.state
     }
 
-    pub fn get_current_playtime(&self) -> f32 {
+    pub fn current_playtime(&self) -> f32 {
         if let Some(start_time) = self.start_time {
             start_time.elapsed().as_secs_f32() + self.played_time.unwrap_or(0.0)
         } else {
@@ -106,7 +107,7 @@ impl Player {
         }
     }
 
-    pub fn get_progress(&self) -> Option<f32> {
+    pub fn play_percentage(&self) -> Option<f32> {
         let Some(duration) = self.decoder.get_duration() else {
             return None;
         };
@@ -117,7 +118,17 @@ impl Player {
             return None;
         }
         let d_sec = (duration as f64 / timebase.denominator() as f64) as f32;
-        Some(self.get_current_playtime() / d_sec)
+        Some(self.current_playtime() / d_sec)
+    }
+
+    pub fn duration_sec(&self) -> Option<f32> {
+        let Some(duration) = self.decoder.get_duration() else {
+            return None;
+        };
+        let Some(timebase) = self.decoder.get_timebase() else {
+            return None;
+        };
+        Some((duration as f64 / timebase.denominator() as f64) as f32)
     }
 
     fn pause_timer(&mut self) {

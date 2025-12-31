@@ -1,15 +1,31 @@
+use std::sync::Arc;
+
 use gpui::{
-    AbsoluteLength, BorderStyle, Bounds, Corners, DefiniteLength, Element, IntoElement, LayoutId,
-    Length, Path, Pixels, Size, Style, point, px, quad, relative, rgb,
+    AbsoluteLength, App, BorderStyle, Bounds, Corners, DefiniteLength, Element, ElementId,
+    IntoElement, LayoutId, Length, MouseDownEvent, Path, Pixels, Point, Size, Style, point, px,
+    quad, relative, rgb,
 };
 
 pub struct Timeline {
+    id: ElementId,
     percent: f32,
+    origin_point: Point<Pixels>,
+    on_click: Option<Arc<Box<dyn Fn(f32, &mut App) + 'static>>>,
 }
 
 impl Timeline {
-    pub fn new(percent: f32) -> Self {
-        Self { percent: percent }
+    pub fn new(id: impl Into<ElementId>, percent: f32) -> Self {
+        Self {
+            id: id.into(),
+            percent: percent,
+            origin_point: point(px(0.), px(0.)),
+            on_click: None,
+        }
+    }
+
+    pub fn on_click(mut self, handler: impl Fn(f32, &mut App) + 'static) -> Self {
+        self.on_click = Some(Arc::new(Box::new(handler)));
+        self
     }
 
     fn indicator_x(&self, b: gpui::Bounds<gpui::Pixels>) -> Pixels {
@@ -23,7 +39,7 @@ impl Element for Timeline {
     type PrepaintState = ();
 
     fn id(&self) -> Option<gpui::ElementId> {
-        None
+        Some(self.id.clone())
     }
 
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
@@ -41,7 +57,7 @@ impl Element for Timeline {
 
         style.size.width = relative(1.0).into();
         style.size.height =
-            Length::Definite(DefiniteLength::Absolute(AbsoluteLength::Pixels(px(30.))));
+            Length::Definite(DefiniteLength::Absolute(AbsoluteLength::Pixels(px(50.))));
 
         let layout_id = window.request_layout(style, None, cx);
         (layout_id, layout_id)
@@ -51,12 +67,12 @@ impl Element for Timeline {
         &mut self,
         _: Option<&gpui::GlobalElementId>,
         _: Option<&gpui::InspectorElementId>,
-        _: gpui::Bounds<gpui::Pixels>,
+        bounds: gpui::Bounds<gpui::Pixels>,
         _: &mut Self::RequestLayoutState,
         _: &mut gpui::Window,
         _: &mut gpui::App,
     ) -> Self::PrepaintState {
-        ()
+        self.origin_point = point(bounds.origin.x, bounds.origin.y + px(20.))
     }
 
     fn paint(
@@ -72,7 +88,7 @@ impl Element for Timeline {
         // timeline base
         window.paint_quad(quad(
             Bounds {
-                origin: bounds.origin,
+                origin: self.origin_point,
                 size: Size {
                     width: bounds.size.width,
                     height: px(10.),
@@ -92,9 +108,9 @@ impl Element for Timeline {
         let width = px(1.0 / scale);
         let height = px(16.);
         let x = self.indicator_x(bounds);
-        let y = bounds.origin.y - px(14.);
+        let y = self.origin_point.y - px(14.);
         let color = gpui::white();
-        let mut path = Path::new(bounds.origin);
+        let mut path = Path::new(self.origin_point);
 
         // paint triangle
         path.move_to(point(x - head_size, y)); // left top
@@ -106,7 +122,7 @@ impl Element for Timeline {
         // paint indicator line
         window.paint_quad(quad(
             Bounds {
-                origin: point(x - width / 2.0, bounds.origin.y - px(3.)),
+                origin: point(x - width / 2.0, self.origin_point.y - px(3.)),
                 size: Size {
                     width: width,
                     height: height,
@@ -118,6 +134,17 @@ impl Element for Timeline {
             color,
             BorderStyle::default(),
         ));
+
+        let on_click = self.on_click.clone();
+        window.on_mouse_event(move |e: &MouseDownEvent, phase, _, cx| {
+            if phase.bubble() && bounds.contains(&e.position) {
+                let percent = e.position.x / bounds.size.width;
+                if let Some(handler) = on_click.as_ref() {
+                    (handler)(percent, cx);
+                }
+                cx.stop_propagation();
+            }
+        });
     }
 }
 
