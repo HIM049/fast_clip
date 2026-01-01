@@ -1,4 +1,5 @@
 use gpui::{ParentElement, Render, Styled, div};
+use gpui_component::StyledExt;
 
 pub struct AboutView;
 
@@ -13,6 +14,7 @@ impl Render for AboutView {
             .flex()
             .justify_center()
             .items_center()
-            .child("About")
+            .font_medium()
+            .child("EazyClip")
     }
 }
