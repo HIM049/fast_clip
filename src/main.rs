@@ -83,101 +83,81 @@ fn open_output_window(
     params: Entity<OutputParams>,
 ) -> impl Fn(&Output, &mut App) {
     move |_: &Output, cx: &mut App| {
-        let state = window_state.read(cx);
-        if let Some(h) = state.output_handle {
-            if let Some(active) = h.is_active(cx) {
-                if active {
-                    return;
-                } else {
-                    h.update(cx, |_, w, _| {
-                        w.activate_window();
-                    })
-                    .unwrap();
-                    return;
-                }
-            } else {
-                window_state.update(cx, |ws, _| {
-                    ws.output_handle = None;
-                });
+        window_state.update(cx, |ws, cx| {
+            match active_window(cx, &mut ws.output_handle) {
+                Ok(_) => return,
+                Err(_) => (),
             }
-        }
-        let handle = cx
-            .open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
-                        None,
-                        size(px(500.), px(300.)),
-                        cx,
-                    ))),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("Output".into()),
-                        appears_transparent: false,
-                        traffic_light_position: None,
-                    }),
-                    focus: true,
-                    show: true,
-                    is_resizable: false,
-                    is_minimizable: false,
-                    kind: WindowKind::PopUp,
-                    ..Default::default()
-                },
-                |window, cx| {
-                    let view = cx.new(|cx| OutputView::new(window, cx, params.clone()));
-                    cx.new(|cx| Root::new(view, window, cx))
-                },
-            )
-            .unwrap();
 
-        window_state.update(cx, |ws, _| ws.output_handle = Some(handle));
+            let window_bounds = Some(WindowBounds::Windowed(Bounds::centered(
+                None,
+                size(px(500.), px(300.)),
+                cx,
+            )));
+            let handle = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds,
+                        titlebar: Some(TitlebarOptions {
+                            title: Some("Output".into()),
+                            appears_transparent: false,
+                            traffic_light_position: None,
+                        }),
+                        focus: true,
+                        show: true,
+                        is_resizable: false,
+                        is_minimizable: false,
+                        kind: WindowKind::PopUp,
+                        ..Default::default()
+                    },
+                    |window, cx| {
+                        let view = cx.new(|cx| OutputView::new(window, cx, params.clone()));
+                        cx.new(|cx| Root::new(view, window, cx))
+                    },
+                )
+                .unwrap();
+            ws.output_handle = Some(handle);
+        });
     }
 }
 
 fn open_about_window(window_state: Entity<WindowState>) -> impl Fn(&About, &mut App) {
     move |_: &About, cx: &mut App| {
-        let state = window_state.read(cx);
-        if let Some(h) = state.about_handle {
-            if let Some(active) = h.is_active(cx) {
-                if active {
-                    return;
-                } else {
-                    h.update(cx, |_, w, _| {
-                        w.activate_window();
-                    })
-                    .unwrap();
-                    return;
-                }
-            } else {
-                window_state.update(cx, |ws, _| {
-                    ws.about_handle = None;
-                });
+        window_state.update(cx, |ws, cx| {
+            match active_window(cx, &mut ws.about_handle) {
+                Ok(_) => return,
+                Err(_) => (),
             }
-        }
-        let handle = cx
-            .open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
-                        None,
-                        size(px(400.), px(300.)),
-                        cx,
-                    ))),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("About".into()),
-                        appears_transparent: false,
-                        traffic_light_position: None,
-                    }),
-                    focus: true,
-                    show: true,
-                    is_resizable: false,
-                    is_minimizable: false,
-                    ..Default::default()
-                },
-                |window, cx| {
-                    let view = cx.new(|_| AboutView);
-                    cx.new(|cx| Root::new(view, window, cx))
-                },
-            )
-            .unwrap();
-        window_state.update(cx, |ws, _| ws.about_handle = Some(handle));
+
+            let window_bounds = Some(WindowBounds::Windowed(Bounds::centered(
+                None,
+                size(px(400.), px(300.)),
+                cx,
+            )));
+
+            let handle = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds,
+                        titlebar: Some(TitlebarOptions {
+                            title: Some("About".into()),
+                            appears_transparent: false,
+                            traffic_light_position: None,
+                        }),
+                        focus: true,
+                        show: true,
+                        is_resizable: false,
+                        is_minimizable: false,
+                        ..Default::default()
+                    },
+                    |window, cx| {
+                        let view = cx.new(|_| AboutView);
+                        cx.new(|cx| Root::new(view, window, cx))
+                    },
+                )
+                .unwrap();
+            ws.about_handle = Some(handle)
+        });
     }
 }
 
@@ -191,4 +171,23 @@ fn init_theme(cx: &mut App) {
     }) {
         println!("error when init theme: {}", err);
     }
+}
+
+fn active_window(cx: &mut App, win_handle: &mut Option<WindowHandle<Root>>) -> Result<(), ()> {
+    if let Some(wh) = win_handle {
+        if let Some(active) = wh.is_active(cx) {
+            if active {
+                return Ok(());
+            } else {
+                wh.update(cx, |_, w, _| {
+                    w.activate_window();
+                })
+                .unwrap();
+                return Ok(());
+            }
+        } else {
+            *win_handle = None;
+        }
+    }
+    Err(())
 }
