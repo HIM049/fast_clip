@@ -30,7 +30,7 @@ pub enum PlayState {
 
 pub struct Player {
     size: Entity<PlayerSize>,
-    output_params: Entity<OutputParams>,
+    // output_params: Entity<OutputParams>,
     decoder: VideoDecoder,
     frame: Arc<RenderImage>,
     frame_buf: Option<FrameImage>,
@@ -46,7 +46,7 @@ impl Player {
         let (producer, consumer) = rb.split();
         Self {
             size: size_entity.clone(),
-            output_params: output_params.clone(),
+            // output_params: output_params.clone(),
             decoder: VideoDecoder::new(size_entity, output_params).set_producer(producer),
             frame: generate_image_fallback((1, 1), vec![]),
             frame_buf: None,

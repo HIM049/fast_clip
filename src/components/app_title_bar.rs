@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Decorations, Entity, Hsla, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Pixels, Render, RenderOnce, SharedString,
-    StatefulInteractiveElement, Styled, Window, WindowControlArea, div, prelude::FluentBuilder, px,
+    App, ClickEvent, Context, Entity, Hsla, InteractiveElement, IntoElement, MouseButton,
+    ParentElement, Pixels, Render, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
+    Window, WindowControlArea, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
     ActiveTheme, Icon, IconName, InteractiveElementExt, Sizable, h_flex, menu::AppMenuBar,
@@ -19,25 +19,25 @@ const TITLE_BAR_LEFT_PADDING: Pixels = px(12.);
 
 pub struct AppTitleBar {
     app_menu: Entity<AppMenuBar>,
-    child: Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>,
+    // child: Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>,
 }
 
 impl AppTitleBar {
     pub fn new(title: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
         Self {
             app_menu: app_menu::init(title, cx),
-            child: Rc::new(|_, _| div().into_any_element()),
+            // child: Rc::new(|_, _| div().into_any_element()),
         }
     }
 
-    pub fn child<F, E>(mut self, f: F) -> Self
-    where
-        E: IntoElement,
-        F: Fn(&mut Window, &mut App) -> E + 'static,
-    {
-        self.child = Rc::new(move |window, cx| f(window, cx).into_any_element());
-        self
-    }
+    // pub fn child<F, E>(mut self, f: F) -> Self
+    // where
+    //     E: IntoElement,
+    //     F: Fn(&mut Window, &mut App) -> E + 'static,
+    // {
+    //     self.child = Rc::new(move |window, cx| f(window, cx).into_any_element());
+    //     self
+    // }
 }
 
 struct TitleBarState {
@@ -46,7 +46,7 @@ struct TitleBarState {
 
 impl Render for AppTitleBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let is_client_decorated = matches!(window.window_decorations(), Decorations::Client { .. });
+        // let is_client_decorated = matches!(window.window_decorations(), Decorations::Client { .. });
         let state = window.use_state(cx, |_, _| TitleBarState { should_move: false });
 
         let is_windows = cfg!(target_os = "windows");
@@ -137,21 +137,21 @@ enum ControlIcon {
 }
 
 impl ControlIcon {
-    fn minimize() -> Self {
-        Self::Minimize
-    }
+    // fn minimize() -> Self {
+    //     Self::Minimize
+    // }
 
-    fn restore() -> Self {
-        Self::Restore
-    }
+    // fn restore() -> Self {
+    //     Self::Restore
+    // }
 
-    fn maximize() -> Self {
-        Self::Maximize
-    }
+    // fn maximize() -> Self {
+    //     Self::Maximize
+    // }
 
-    fn close(on_close_window: Option<Rc<Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>>>) -> Self {
-        Self::Close { on_close_window }
-    }
+    // fn close(on_close_window: Option<Rc<Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>>>) -> Self {
+    //     Self::Close { on_close_window }
+    // }
 
     fn id(&self) -> &'static str {
         match self {
