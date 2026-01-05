@@ -57,7 +57,10 @@ impl Player {
         }
     }
 
-    pub fn open(&mut self, cx: &mut Context<MyApp>, path: &PathBuf) -> anyhow::Result<()> {
+    pub fn open<T>(&mut self, cx: &mut Context<T>, path: &PathBuf) -> anyhow::Result<()>
+    where
+        T: 'static,
+    {
         self.decoder.open(cx, path)?;
         Ok(())
     }

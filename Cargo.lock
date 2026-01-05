@@ -1439,6 +1439,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89a09f22a6c6069a18470eb92d2298acf25463f14256d24778e1230d789a2aec"
 dependencies = [
  "bitflags 2.10.0",
+ "block2",
+ "libc",
  "objc2",
 ]
 
@@ -1520,6 +1522,7 @@ dependencies = [
  "image",
  "reqwest",
  "reqwest_client",
+ "rfd",
  "ringbuf",
  "serde_json",
  "smallvec",
@@ -3850,6 +3853,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c"
 dependencies = [
  "bitflags 2.10.0",
+ "block2",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
@@ -4293,6 +4297,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 
 [[package]]
+name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+
+[[package]]
 name = "portable-atomic"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4319,7 +4329,7 @@ dependencies = [
  "log",
  "parking_lot",
  "pin-project",
- "pollster",
+ "pollster 0.2.5",
  "static_assertions",
  "thiserror 1.0.69",
 ]
@@ -4865,6 +4875,32 @@ dependencies = [
  "svgtypes",
  "tiny-skia",
  "usvg",
+]
+
+[[package]]
+name = "rfd"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e22b12ea46f8320162a0aa43ae045169fe1ac89314e1861e4ce79091fce6ef11"
+dependencies = [
+ "block2",
+ "dispatch2",
+ "js-sys",
+ "libc",
+ "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "pollster 0.4.0",
+ "raw-window-handle",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols 0.32.9",
+ "web-sys",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

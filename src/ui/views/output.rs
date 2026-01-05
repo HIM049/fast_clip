@@ -1,4 +1,4 @@
-use gpui::{AppContext, Entity, ParentElement, Render, Styled, div};
+use gpui::{AppContext, Entity, ParentElement, Render, SharedString, Styled, div};
 use gpui_component::{
     Sizable, StyledExt,
     button::{Button, ButtonVariants},
@@ -6,6 +6,7 @@ use gpui_component::{
     input::{Input, InputState},
     label::Label,
 };
+use rfd::FileDialog;
 
 use crate::{models::model::OutputParams, ui::output::output::output};
 
@@ -72,7 +73,23 @@ impl Render for OutputView {
                                 .flex()
                                 .h_flex()
                                 .child(Input::new(&self.input))
-                                .child(Button::new("select").ghost().label("...")),
+                                .child(Button::new("select").ghost().label("...").on_click(
+                                    cx.listener(|this, _, w, cx| {
+                                        let p = FileDialog::new()
+                                            .set_can_create_directories(true)
+                                            .set_file_name("output.mp4")
+                                            .set_directory("/")
+                                            .save_file();
+                                        if let Some(path) = p {
+                                            let p = SharedString::from(
+                                                path.to_string_lossy().to_string(),
+                                            );
+                                            this.input.update(cx, move |i, cx| {
+                                                i.set_value(p, w, cx);
+                                            });
+                                        }
+                                    }),
+                                )),
                         ),
                     )
                     .child(

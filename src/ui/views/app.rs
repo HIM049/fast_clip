@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, AppContext, Bounds, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    TitlebarOptions, Window, WindowBounds, WindowOptions, div, prelude::FluentBuilder, px, size,
+    AnyElement, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
+    div, prelude::FluentBuilder,
 };
 use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
@@ -10,10 +10,9 @@ use crate::{
     ui::{
         player::{
             player::{PlayState, Player},
-            size::{self, PlayerSize},
+            size::PlayerSize,
         },
         timeline::Timeline,
-        views::about::AboutView,
     },
 };
 
@@ -45,16 +44,6 @@ impl MyApp {
 
     pub fn new_player(&mut self) {
         self.player = Player::new(self.size.clone(), self.output_parames.clone());
-    }
-
-    pub fn open(&mut self, cx: &mut Context<Self>) {
-        let path = "/Users/him049/Downloads/QQ20251030-92230.mp4";
-        self.output_parames.update(cx, |params, _| {
-            params.path = Some(path.into());
-        });
-        if let Some(path) = self.output_parames.read(cx).path.clone() {
-            self.player.open(cx, &path).unwrap();
-        }
     }
 
     pub fn run(&mut self, cx: &mut Context<Self>) {
@@ -90,15 +79,32 @@ impl MyApp {
         }
         None
     }
-}
 
-impl Render for MyApp {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn listen_open(&mut self, cx: &mut Context<Self>) {
+        cx.observe(&self.output_parames, |this, e: Entity<OutputParams>, cx| {
+            if let Some(path) = e.read(cx).path.clone() {
+                this.player.open(cx, &path).unwrap();
+            }
+
+            e.update(cx, |p, _| p.path = None);
+            this.run(cx);
+        })
+        .detach();
+    }
+
+    fn play_loop(window: &mut Window, cx: &mut Context<Self>) {
         cx.on_next_frame(window, |this, _, cx| {
             if this.player.get_state() == PlayState::Playing {
                 cx.notify();
             }
         });
+    }
+}
+
+impl Render for MyApp {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        Self::play_loop(window, cx);
+        self.listen_open(cx);
 
         div()
             .bg(cx.theme().background)
@@ -160,9 +166,9 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
             this.player.get_state() != PlayState::Stopped,
             |d| {
                 d.child(format!(
-                    "{:3.2}s / {:3.2}s",
-                    this.player.current_playtime(),
-                    this.player.duration_sec().unwrap_or(0.)
+                    "{} / {}",
+                    format_sec(this.player.current_playtime()),
+                    format_sec(this.player.duration_sec().unwrap_or(0.))
                 ))
             },
             |d| d.child(""),
@@ -175,18 +181,6 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                 .h_full()
                 .w_full()
                 .gap_2()
-                .when(play_state == PlayState::Stopped, |this| {
-                    this.child(Button::new("open").child("Open").on_click(cx.listener(
-                        |this, _, _, cx| {
-                            this.open(cx);
-                        },
-                    )))
-                    .child(Button::new("run").child("Run").on_click(cx.listener(
-                        |this, _, _, cx| {
-                            this.run(cx);
-                        },
-                    )))
-                })
                 .when(play_state == PlayState::Playing, |this| {
                     this.child(Button::new("pause").child("Pause").on_click(cx.listener(
                         |this, _, _, cx| {
@@ -238,4 +232,12 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                 }),
         )
         .into_any_element()
+}
+
+fn format_sec(sec: f32) -> String {
+    format!(
+        "{:02}:{:02}",
+        sec.round() as i32 / 60,
+        sec.round() as i32 % 60,
+    )
 }

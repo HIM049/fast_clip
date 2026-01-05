@@ -1,7 +1,7 @@
 use gpui::{App, Entity, Menu, MenuItem, SharedString};
 use gpui_component::{Theme, menu::AppMenuBar};
 
-use crate::{About, Output, Quit};
+use crate::{About, Open, Output, Quit};
 
 pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
@@ -44,8 +44,9 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
         Menu {
             name: "File".into(),
             items: vec![
-                MenuItem::action("Open", Quit),
+                MenuItem::action("Open", Open),
                 MenuItem::action("Close", Quit),
+                MenuItem::Separator,
                 MenuItem::action("Output", Output),
                 MenuItem::Separator,
                 MenuItem::action("Anymore menus", Quit),

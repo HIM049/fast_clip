@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use gpui::*;
 use gpui_component::*;
+use rfd::FileDialog;
 
 use crate::{
     models::model::{OutputParams, WindowState},
@@ -15,7 +16,7 @@ mod components;
 mod models;
 mod ui;
 
-actions!(app, [Quit, About, Output]);
+actions!(app, [Quit, About, Open, Output]);
 
 fn main() {
     ffmpeg_next::init().unwrap();
@@ -63,7 +64,20 @@ fn main() {
         .unwrap();
 
         cx.on_action(open_about_window(window_state.clone()));
-        cx.on_action(open_output_window(window_state, params_entity));
+        cx.on_action(open_output_window(window_state, params_entity.clone()));
+        cx.on_action(move |_: &Open, cx| {
+            let p = FileDialog::new()
+                .add_filter("video", &["mp4"])
+                .set_directory("/")
+                .pick_file();
+            if let Some(path) = p {
+                println!("DEBUG: picked file {}", path.to_string_lossy());
+                params_entity.update(cx, |p, cx| {
+                    p.path = Some(path);
+                    cx.notify();
+                });
+            }
+        });
 
         // cx.spawn(async move |acx| {
         //     acx.open_window(WindowOptions::default(), |window, cx| {

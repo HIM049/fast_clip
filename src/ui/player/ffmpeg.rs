@@ -101,7 +101,10 @@ impl VideoDecoder {
     }
 
     /// open a video file
-    pub fn open(&mut self, cx: &mut Context<MyApp>, path: &PathBuf) -> anyhow::Result<()> {
+    pub fn open<T>(&mut self, cx: &mut Context<T>, path: &PathBuf) -> anyhow::Result<()>
+    where
+        T: 'static,
+    {
         let i = ffmpeg_next::format::input(path)?;
 
         let stream = i
