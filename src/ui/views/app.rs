@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
-    div, prelude::FluentBuilder,
+    AnyElement, AppContext, Bounds, Context, Entity, IntoElement, ParentElement, Render, Styled,
+    TitlebarOptions, Window, WindowBounds, WindowOptions, div, prelude::FluentBuilder, px, size,
 };
 use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
@@ -10,9 +10,10 @@ use crate::{
     ui::{
         player::{
             player::{PlayState, Player},
-            size::PlayerSize,
+            size::{self, PlayerSize},
         },
         timeline::Timeline,
+        views::about::AboutView,
     },
 };
 
@@ -47,7 +48,7 @@ impl MyApp {
     }
 
     pub fn open(&mut self, cx: &mut Context<Self>) {
-        let path = "D:/Videos/Records/Apex Legends 2024.05.04 - 18.07.10.04.DVR.mp4";
+        let path = "/Users/him049/Downloads/QQ20251030-92230.mp4";
         self.output_parames.update(cx, |params, _| {
             params.path = Some(path.into());
         });
@@ -212,7 +213,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                     )))
                     .child(Button::new("min").child("-10s").on_click(cx.listener(
                         |this, _, _, cx| {
-                            this.player.set_playtime(|now, _| 0f32.max(now - 10.));
+                            this.player.set_playtime(|now, _| now - 10.);
                             cx.notify();
                         },
                     )))

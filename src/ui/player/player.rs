@@ -93,7 +93,7 @@ impl Player {
         self.pause_timer();
         let now = self.played_time.unwrap_or(0.);
         let dur_sec = self.duration_sec().unwrap_or(0.);
-        self.played_time = Some(update_fn(now, dur_sec));
+        self.played_time = Some(update_fn(now, dur_sec).clamp(0.0, dur_sec));
     }
 
     pub fn get_state(&self) -> PlayState {

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gpui::WindowHandle;
+use gpui::{App, WindowHandle};
 use gpui_component::Root;
 
 pub struct WindowState {
@@ -13,6 +13,21 @@ impl WindowState {
         Self {
             output_handle: None,
             about_handle: None,
+        }
+    }
+
+    pub fn close_all(&mut self, cx: &mut App) {
+        if let Some(h) = self.output_handle {
+            h.update(cx, |_, w, cx| {
+                w.remove_window();
+            })
+            .unwrap();
+        }
+        if let Some(h) = self.about_handle {
+            h.update(cx, |_, w, _| {
+                w.remove_window();
+            })
+            .unwrap();
         }
     }
 }

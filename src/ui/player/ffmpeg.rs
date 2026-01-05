@@ -205,7 +205,7 @@ impl VideoDecoder {
                         DecoderEvent::None => (),
                         DecoderEvent::Stop => break,
                         DecoderEvent::Pause => {
-                            event = condvar.wait(event).unwrap();
+                            let _event = condvar.wait(event).unwrap();
                             continue;
                         }
                         DecoderEvent::Seek(t) => {
