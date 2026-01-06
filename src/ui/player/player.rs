@@ -38,6 +38,8 @@ pub struct Player {
     start_time: Option<Instant>,
     played_time: Option<f32>,
     state: PlayState,
+
+    is_seeking: bool,
 }
 
 impl Player {
@@ -54,6 +56,8 @@ impl Player {
             start_time: None,
             played_time: None,
             state: PlayState::Stopped,
+
+            is_seeking: false,
         }
     }
 
@@ -67,11 +71,13 @@ impl Player {
 
     pub fn start_play(&mut self, cx: &mut Context<MyApp>) {
         self.state = PlayState::Playing;
+        self.start_timer();
         self.decoder.spawn_decoder(self.size.clone(), cx);
     }
 
     pub fn resume_play(&mut self) {
         self.state = PlayState::Playing;
+        self.start_timer();
         self.decoder.set_event(DecoderEvent::None);
     }
 
@@ -135,6 +141,10 @@ impl Player {
         Some((duration as f64 / timebase.denominator() as f64) as f32)
     }
 
+    fn start_timer(&mut self) {
+        self.start_time = Some(std::time::Instant::now());
+    }
+
     fn pause_timer(&mut self) {
         let Some(start_time) = self.start_time.take() else {
             return;
@@ -146,68 +156,75 @@ impl Player {
         }
     }
 
-    fn compare_time(&mut self, frame_pts: u64) -> FrameAction {
-        if self.start_time.is_none() {
-            self.start_time = Some(std::time::Instant::now());
+    fn play_time(&self) -> f32 {
+        let time_sec;
+        if let Some(time) = self.start_time {
+            time_sec = time.elapsed().as_secs_f32();
+        } else {
+            time_sec = 0.;
         }
-        let Some(time) = self.start_time else {
-            return FrameAction::Wait;
-        };
+        self.played_time.unwrap_or(0.) + time_sec
+    }
+
+    fn compare_time(&mut self, frame_pts: u64) -> FrameAction {
         let Some(time_base) = self.decoder.get_timebase() else {
             return FrameAction::Wait;
         };
 
-        let play_time = time.elapsed().as_secs_f32() + self.played_time.unwrap_or(0.);
+        let play_time = self.play_time();
         let frame_time = frame_pts as f32 / time_base.denominator() as f32;
 
-        if frame_time <= play_time {}
-
         if (play_time - frame_time).abs() <= 0.3 {
+            if self.is_seeking {
+                self.is_seeking = false;
+                self.start_timer();
+            }
             if frame_time <= play_time {
                 FrameAction::Render
             } else {
                 FrameAction::Wait
             }
         } else {
-            FrameAction::ReSeek(play_time)
+            if self.is_seeking {
+                return FrameAction::Drop;
+            } else {
+                self.is_seeking = true;
+                self.pause_timer();
+                FrameAction::ReSeek(play_time)
+            }
         }
     }
 
     pub fn view(&mut self, w: &mut Window) -> Viewer {
         // whether need to play next frames when need
         if self.state == PlayState::Playing {
-            // if buffer is not none, clear it first
+            let next_frame: Option<FrameImage>;
+            // prepare next frame from buf or decoder
             if let Some(fb) = self.frame_buf.take() {
-                match self.compare_time(fb.pts) {
+                // if buffer is not none, clear it first
+                next_frame = Some(fb);
+            } else if let Some(f) = self.consumer.try_pop() {
+                next_frame = Some(f);
+            } else {
+                next_frame = None;
+            }
+
+            // update if had next_frame
+            if let Some(next_frame) = next_frame {
+                match self.compare_time(next_frame.pts) {
                     FrameAction::Wait => {
-                        self.frame_buf = Some(fb);
+                        self.frame_buf = Some(next_frame);
                     }
                     FrameAction::Render => {
                         w.drop_image(self.frame.clone()).unwrap();
-                        self.frame = fb.image;
+                        self.frame = next_frame.image;
                     }
                     FrameAction::ReSeek(t) => {
                         self.decoder.set_event(DecoderEvent::Seek(t));
-                        w.drop_image(fb.image).unwrap();
+                        w.drop_image(next_frame.image).unwrap();
                         self.consumer.clear();
                     }
-                }
-            } else {
-                if let Some(f) = self.consumer.try_pop() {
-                    match self.compare_time(f.pts) {
-                        FrameAction::Wait => {
-                            self.frame_buf = Some(f);
-                        }
-                        FrameAction::Render => {
-                            w.drop_image(self.frame.clone()).unwrap();
-                            self.frame = f.image;
-                        }
-                        FrameAction::ReSeek(t) => {
-                            self.decoder.set_event(DecoderEvent::Seek(t));
-                            w.drop_image(f.image).unwrap();
-                            self.consumer.clear();
-                        }
-                    }
+                    FrameAction::Drop => w.drop_image(next_frame.image).unwrap(),
                 }
             }
         }

@@ -17,3 +17,4 @@ a tiny video edit tool for make clips fast and eazy.
   - [ ] clip base edit
   - [ ] multiple source
   - [x] file picker & open action
+  - [x] seek fix
