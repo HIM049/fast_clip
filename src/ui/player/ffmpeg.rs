@@ -8,11 +8,12 @@ use std::{
 use anyhow::anyhow;
 use ffmpeg_next::{
     Rational,
-    codec::{self},
     decoder::{self},
-    format::{self, context},
-    frame::audio,
-    software::scaling::{self},
+    format::{self, context, sample::Type},
+    software::{
+        resampling,
+        scaling::{self},
+    },
 };
 use gpui::{Context, Entity};
 use ringbuf::{
@@ -23,7 +24,11 @@ use ringbuf::{
 use crate::{
     models::model::OutputParams,
     ui::{
-        player::{frame::FrameImage, size::PlayerSize, utils::generate_image_fallback},
+        player::{
+            frame::{FrameAudio, FrameImage},
+            size::PlayerSize,
+            utils::generate_image_fallback,
+        },
         views::app::MyApp,
     },
 };
@@ -45,7 +50,8 @@ pub struct VideoDecoder {
     time_base: Rational,
     duration: i64,
 
-    producer: Option<HeapProd<FrameImage>>,
+    v_producer: Option<HeapProd<FrameImage>>,
+    a_producer: Option<HeapProd<FrameAudio>>,
     size: Entity<PlayerSize>,
     output_prarms: Entity<OutputParams>,
 
@@ -76,8 +82,13 @@ impl VideoDecoder {
     // }
 
     /// set producer of ringbuf in VideoDecoder
-    pub fn set_producer(mut self, p: HeapProd<FrameImage>) -> Self {
-        self.producer = Some(p);
+    pub fn set_video_producer(mut self, p: HeapProd<FrameImage>) -> Self {
+        self.v_producer = Some(p);
+        self
+    }
+
+    pub fn set_audio_producer(mut self, p: HeapProd<FrameAudio>) -> Self {
+        self.a_producer = Some(p);
         self
     }
 
@@ -122,11 +133,12 @@ impl VideoDecoder {
             .best(ffmpeg_next::media::Type::Audio)
             .ok_or(anyhow!("failed to find video stream"))?;
 
-        let decoder = ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?
-            .decoder()
-            .video()?;
+        let v_decoder =
+            ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?
+                .decoder()
+                .video()?;
 
-        let audio_decoder =
+        let a_decoder =
             ffmpeg_next::codec::context::Context::from_parameters(a_stream.parameters())?
                 .decoder()
                 .audio()?;
@@ -137,8 +149,8 @@ impl VideoDecoder {
         let frame_rate = v_stream.avg_frame_rate();
         let duration = v_stream.duration();
         // get orignal video size
-        let orignal_width = decoder.width();
-        let orignal_height = decoder.height();
+        let orignal_width = v_decoder.width();
+        let orignal_height = v_decoder.height();
 
         println!("DEBUG: frame rate: {}, duration: {}", frame_rate, duration);
 
@@ -156,11 +168,12 @@ impl VideoDecoder {
         Ok(Self {
             video_stream_ix: v_stream.index(),
             audio_stream_ix: a_stream.index(),
-            v_decoder: Some(decoder),
-            a_decoder: Some(audio_decoder),
+            v_decoder: Some(v_decoder),
+            a_decoder: Some(a_decoder),
             time_base,
             duration,
-            producer: None,
+            v_producer: None,
+            a_producer: None,
             size,
             output_prarms,
             input: Some(i),
@@ -175,10 +188,16 @@ impl VideoDecoder {
         let Some(mut input) = self.input.take() else {
             return;
         };
-        let Some(mut decoder) = self.v_decoder.take() else {
+        let Some(mut v_decoder) = self.v_decoder.take() else {
             return;
         };
-        let Some(mut producer) = self.producer.take() else {
+        let Some(mut a_decoder) = self.a_decoder.take() else {
+            return;
+        };
+        let Some(mut v_producer) = self.v_producer.take() else {
+            return;
+        };
+        let Some(mut a_producer) = self.a_producer.take() else {
             return;
         };
 
@@ -189,14 +208,14 @@ impl VideoDecoder {
         let video_ix = self.video_stream_ix;
         let audio_ix = self.audio_stream_ix;
 
-        let w = decoder.width();
-        let h = decoder.height();
+        let w = v_decoder.width();
+        let h = v_decoder.height();
         let event = self.event.clone();
         let condvar = self.condvar.clone();
         thread::spawn(move || {
             // init ffmpeg scaler
-            let mut scaler_context = ffmpeg_next::software::scaling::Context::get(
-                decoder.format(),
+            let mut scaler = ffmpeg_next::software::scaling::Context::get(
+                v_decoder.format(),
                 w,
                 h,
                 format::Pixel::BGRA,
@@ -206,11 +225,24 @@ impl VideoDecoder {
             )
             .unwrap();
 
+            let mut resampler = resampling::context::Context::get(
+                a_decoder.format(),
+                a_decoder.channel_layout(),
+                a_decoder.rate(),
+                format::Sample::F32(Type::Packed),
+                a_decoder.channel_layout(),
+                44100, // TODO: change to user target rate
+            )
+            .unwrap();
+
             // frame buffer
             let mut frame_buf: Option<FrameImage> = None;
+            let mut a_frame_buf: Option<FrameAudio> = None;
             // frame varible
-            let mut decoded_frame = ffmpeg_next::frame::Video::new(decoder.format(), w, h);
+            let mut decoded_frame = ffmpeg_next::frame::Video::new(v_decoder.format(), w, h);
             let mut scaled_frame = ffmpeg_next::frame::Video::new(format::Pixel::BGRA, w, h);
+            let mut decoded_audio = ffmpeg_next::frame::Audio::empty();
+            let mut resampled_audio = ffmpeg_next::frame::Audio::empty();
 
             let mut seek_to: Option<f32> = None;
             loop {
@@ -230,7 +262,7 @@ impl VideoDecoder {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
                             }
-                            decoder.flush();
+                            v_decoder.flush();
                             seek_to = Some(t);
                         }
                     }
@@ -243,19 +275,22 @@ impl VideoDecoder {
                     if let Some((stream, packet)) = input.packets().next() {
                         if stream.index() == video_ix {
                             // try to send packet to decoder
-                            if decoder.send_packet(&packet).is_err() {
-                                println!("DEBUG: error when send packet");
-                                return;
+                            if v_decoder.send_packet(&packet).is_err() {
+                                println!("DEBUG: error when send video packet");
+                                break;
                             }
                         } else if stream.index() == audio_ix {
-                            // TODO: channel send
+                            if a_decoder.send_packet(&packet).is_err() {
+                                println!("DEBUG: error when send audio packet");
+                                break;
+                            }
                         }
                     } else {
                         break;
                     };
 
                     // try receive decoder
-                    if decoder.receive_frame(&mut decoded_frame).is_ok() {
+                    if v_decoder.receive_frame(&mut decoded_frame).is_ok() {
                         // drop extra frames when seek
                         if let Some(to) = seek_to {
                             let target = (to * time_base.denominator() as f32) as i64;
@@ -266,9 +301,7 @@ impl VideoDecoder {
                             }
                         }
                         // convert frame
-                        scaler_context
-                            .run(&decoded_frame, &mut scaled_frame)
-                            .unwrap();
+                        scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
 
                         let data = scaled_frame.data(0);
                         let stride = scaled_frame.stride(0);
@@ -281,17 +314,41 @@ impl VideoDecoder {
 
                         frame_buf = Some(FrameImage {
                             image: generate_image_fallback(orignal_size, buffer),
-                            pts: decoded_frame.pts().unwrap_or(0) as u64,
+                            pts: decoded_frame.pts().unwrap_or(0),
+                        });
+                    }
+
+                    if a_decoder.receive_frame(&mut decoded_audio).is_ok() {
+                        resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
+
+                        let raw_samples: &[f32] = unsafe {
+                            std::slice::from_raw_parts(
+                                resampled_audio.data(0).as_ptr() as *const f32,
+                                resampled_audio.samples() * resampled_audio.channels() as usize,
+                            )
+                        };
+
+                        a_frame_buf = Some(FrameAudio {
+                            sample: Arc::new(raw_samples.to_vec()),
+                            pts: decoded_audio.pts().unwrap(),
                         });
                     }
                 }
 
-                if producer.is_full() {
+                if v_producer.is_full() && a_producer.is_full() {
                     thread::sleep(Duration::from_millis(10));
                 }
+
                 if let Some(f) = frame_buf.take() {
-                    if let Err(f) = producer.try_push(f) {
+                    if let Err(f) = v_producer.try_push(f) {
                         frame_buf = Some(f);
+                    }
+                }
+
+                // TODO: could make delay ?
+                if let Some(f) = a_frame_buf.take() {
+                    if let Err(f) = a_producer.try_push(f) {
+                        a_frame_buf = Some(f);
                     }
                 }
             }

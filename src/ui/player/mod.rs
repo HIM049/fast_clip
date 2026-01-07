@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod ffmpeg;
 pub mod frame;
 pub mod player;

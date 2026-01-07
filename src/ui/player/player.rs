@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use gpui::{Context, Entity, RenderImage, Window};
 use ringbuf::{
-    HeapCons,
+    HeapCons, HeapProd,
     storage::Heap,
     traits::{Consumer, Split},
 };
@@ -11,8 +11,9 @@ use crate::{
     models::model::OutputParams,
     ui::{
         player::{
+            audio::AudioPlayer,
             ffmpeg::{DecoderEvent, VideoDecoder},
-            frame::{FrameAction, FrameImage},
+            frame::{FrameAction, FrameAudio, FrameImage},
             size::PlayerSize,
             utils::generate_image_fallback,
             viewer::Viewer,
@@ -35,10 +36,13 @@ pub struct Player {
     decoder: Option<VideoDecoder>,
     frame: Arc<RenderImage>,
     frame_buf: Option<FrameImage>,
+    producer: Option<HeapProd<FrameImage>>,
     consumer: HeapCons<FrameImage>,
     start_time: Option<Instant>,
     played_time: Option<f32>,
     state: PlayState,
+
+    audio_player: Option<AudioPlayer>,
 
     recent_pts: f32,
     is_time_set: bool,
@@ -56,10 +60,13 @@ impl Player {
             decoder: None,
             frame: generate_image_fallback((1, 1), vec![]),
             frame_buf: None,
+            producer: Some(producer),
             consumer,
             start_time: None,
             played_time: None,
             state: PlayState::Stopped,
+
+            audio_player: None,
 
             recent_pts: 0.0,
             is_time_set: false,
@@ -75,8 +82,17 @@ impl Player {
     where
         T: 'static,
     {
+        let rb = ringbuf::SharedRb::<Heap<FrameAudio>>::new(30 * 1);
+        let (producer, consumer) = rb.split();
+
+        let audio = AudioPlayer::new().unwrap().spawn(consumer);
+        self.audio_player = Some(audio);
+
         self.decoder = Some(
-            VideoDecoder::open(cx, path, self.size.clone(), self.output_params.clone()).unwrap(),
+            VideoDecoder::open(cx, path, self.size.clone(), self.output_params.clone())
+                .unwrap()
+                .set_video_producer(self.producer.take().unwrap())
+                .set_audio_producer(producer),
         );
         self.init = true;
         Ok(())
@@ -191,7 +207,10 @@ impl Player {
         self.played_time.unwrap_or(0.) + time_sec
     }
 
-    fn frame_time(&self, pts: u64) -> Option<f32> {
+    fn frame_time(&self, pts: i64) -> Option<f32> {
+        if pts.is_negative() {
+            return None;
+        }
         let Some(decoder) = self.decoder.as_ref() else {
             return None;
         };
@@ -199,7 +218,7 @@ impl Player {
         Some(pts as f32 / time_base.denominator() as f32)
     }
 
-    fn compare_time(&mut self, frame_pts: u64) -> FrameAction {
+    fn compare_time(&mut self, frame_pts: i64) -> FrameAction {
         let Some(frame_time) = self.frame_time(frame_pts) else {
             return FrameAction::Wait;
         };

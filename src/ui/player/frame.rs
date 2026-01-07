@@ -6,7 +6,7 @@ use crate::ui::player::utils::generate_image_fallback;
 
 pub struct FrameImage {
     pub image: Arc<RenderImage>,
-    pub pts: u64,
+    pub pts: i64,
 }
 
 impl FrameImage {
@@ -16,6 +16,11 @@ impl FrameImage {
             pts: 0,
         }
     }
+}
+
+pub struct FrameAudio {
+    pub sample: Arc<Vec<f32>>,
+    pub pts: i64,
 }
 
 #[derive(Debug)]
