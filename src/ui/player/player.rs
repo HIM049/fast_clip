@@ -37,12 +37,13 @@ pub struct Player {
     frame: Arc<RenderImage>,
     frame_buf: Option<FrameImage>,
     producer: Option<HeapProd<FrameImage>>,
+    a_producer: Option<HeapProd<FrameAudio>>,
     consumer: HeapCons<FrameImage>,
     start_time: Option<Instant>,
     played_time: Option<f32>,
     state: PlayState,
 
-    audio_player: Option<AudioPlayer>,
+    audio_player: AudioPlayer,
 
     recent_pts: f32,
     is_time_set: bool,
@@ -52,7 +53,13 @@ pub struct Player {
 impl Player {
     pub fn new(size_entity: Entity<PlayerSize>, output_params: Entity<OutputParams>) -> Self {
         let rb = ringbuf::SharedRb::<Heap<FrameImage>>::new(30 * 1);
-        let (producer, consumer) = rb.split();
+        let (v_producer, v_consumer) = rb.split();
+
+        let rb = ringbuf::SharedRb::<Heap<FrameAudio>>::new(30 * 1);
+        let (a_producer, a_consumer) = rb.split();
+
+        let audio_player = AudioPlayer::new().unwrap().spawn(a_consumer);
+
         Self {
             init: false,
             size: size_entity.clone(),
@@ -60,13 +67,14 @@ impl Player {
             decoder: None,
             frame: generate_image_fallback((1, 1), vec![]),
             frame_buf: None,
-            producer: Some(producer),
-            consumer,
+            producer: Some(v_producer),
+            a_producer: Some(a_producer),
+            consumer: v_consumer,
             start_time: None,
             played_time: None,
             state: PlayState::Stopped,
 
-            audio_player: None,
+            audio_player,
 
             recent_pts: 0.0,
             is_time_set: false,
@@ -82,17 +90,17 @@ impl Player {
     where
         T: 'static,
     {
-        let rb = ringbuf::SharedRb::<Heap<FrameAudio>>::new(30 * 1);
-        let (producer, consumer) = rb.split();
-
-        let audio = AudioPlayer::new().unwrap().spawn(consumer);
-        self.audio_player = Some(audio);
-
         self.decoder = Some(
-            VideoDecoder::open(cx, path, self.size.clone(), self.output_params.clone())
-                .unwrap()
-                .set_video_producer(self.producer.take().unwrap())
-                .set_audio_producer(producer),
+            VideoDecoder::open(
+                cx,
+                path,
+                self.size.clone(),
+                self.output_params.clone(),
+                self.audio_player.sample_rate(),
+            )
+            .unwrap()
+            .set_video_producer(self.producer.take().unwrap())
+            .set_audio_producer(self.a_producer.take().unwrap()),
         );
         self.init = true;
         Ok(())

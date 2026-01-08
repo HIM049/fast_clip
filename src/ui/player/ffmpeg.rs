@@ -49,6 +49,7 @@ pub struct VideoDecoder {
     a_decoder: Option<decoder::Audio>,
     time_base: Rational,
     duration: i64,
+    device_sample_rate: u32,
 
     v_producer: Option<HeapProd<FrameImage>>,
     a_producer: Option<HeapProd<FrameAudio>>,
@@ -117,6 +118,7 @@ impl VideoDecoder {
         path: &PathBuf,
         size: Entity<PlayerSize>,
         output_prarms: Entity<OutputParams>,
+        sample_rate: u32,
     ) -> anyhow::Result<Self>
     where
         T: 'static,
@@ -144,7 +146,6 @@ impl VideoDecoder {
                 .audio()?;
 
         let time_base = v_stream.time_base();
-
         // get sample rate and length of video frams
         let frame_rate = v_stream.avg_frame_rate();
         let duration = v_stream.duration();
@@ -178,6 +179,8 @@ impl VideoDecoder {
             output_prarms,
             input: Some(i),
 
+            device_sample_rate: sample_rate,
+
             event: Arc::new(Mutex::new(DecoderEvent::None)),
             condvar: Arc::new(Condvar::new()),
         })
@@ -201,6 +204,7 @@ impl VideoDecoder {
             return;
         };
 
+        let device_sample_rate = self.device_sample_rate;
         let time_base = self.time_base;
 
         let orignal_size = size.read(cx).orignal_size();
@@ -231,7 +235,7 @@ impl VideoDecoder {
                 a_decoder.rate(),
                 format::Sample::F32(Type::Packed),
                 a_decoder.channel_layout(),
-                44100, // TODO: change to user target rate
+                device_sample_rate,
             )
             .unwrap();
 

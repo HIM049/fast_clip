@@ -73,7 +73,6 @@ fn main() {
             });
 
             let params = params_entity.clone();
-
             cx.spawn(async move |cx: &mut AsyncApp| {
                 let Ok(r) = result.await else {
                     return;
@@ -85,9 +84,10 @@ fn main() {
                     println!("DEBUG: got some path: {:?}", paths);
                     let path = paths[0].clone();
                     cx.update(|cx| {
-                        params.update(cx, |p, _| {
+                        params.update(cx, |p, cx| {
                             p.path = Some(path);
-                        })
+                            cx.notify();
+                        });
                     })
                     .unwrap();
                 }

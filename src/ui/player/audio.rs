@@ -11,12 +11,12 @@ pub struct AudioPlayer {
     _host: cpal::Host,
     device: cpal::Device,
     config: StreamConfig,
+    sample_rate: u32,
     stream: Option<cpal::Stream>,
 }
 
 impl AudioPlayer {
     pub fn new() -> anyhow::Result<Self> {
-        println!("new player");
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -28,18 +28,37 @@ impl AudioPlayer {
             .ok_or(anyhow!("failed to find supported config"))?
             .with_max_sample_rate();
 
+        let sample_rate = stream_config.sample_rate();
+
         let config = stream_config.config();
         Ok(Self {
             _host: host,
             device,
             config,
+            sample_rate,
             stream: None,
         })
     }
 
-    pub fn spawn(mut self, mut consumer: HeapCons<FrameAudio>) -> Self {
-        println!("spawn player");
+    pub fn play(&mut self) -> Result<(), cpal::PlayStreamError> {
+        if let Some(s) = self.stream.as_mut() {
+            s.play()?;
+        }
+        Ok(())
+    }
 
+    pub fn pause(&mut self) -> Result<(), cpal::PauseStreamError> {
+        if let Some(s) = self.stream.as_mut() {
+            s.pause()?;
+        }
+        Ok(())
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    pub fn spawn(mut self, mut consumer: HeapCons<FrameAudio>) -> Self {
         let stream = self
             .device
             .build_output_stream(
@@ -49,6 +68,8 @@ impl AudioPlayer {
                         let len = data.len().min(f.sample.len());
                         data[..len].copy_from_slice(&f.sample[..len]);
                         // println!("frame len {}, want len {}", len, data.len());
+                    } else {
+                        data.fill(0.0);
                     }
                 },
                 move |err| {
