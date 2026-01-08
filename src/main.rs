@@ -83,13 +83,12 @@ fn main() {
                 if let Some(paths) = r {
                     println!("DEBUG: got some path: {:?}", paths);
                     let path = paths[0].clone();
-                    cx.update(|cx| {
-                        params.update(cx, |p, cx| {
+                    params
+                        .update(cx, |p, cx| {
                             p.path = Some(path);
                             cx.notify();
-                        });
-                    })
-                    .unwrap();
+                        })
+                        .unwrap();
                 }
             })
             .detach();

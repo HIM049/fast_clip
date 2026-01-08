@@ -85,7 +85,6 @@ impl MyApp {
 
     fn listen_open(&mut self, cx: &mut Context<Self>) {
         cx.observe(&self.output_parames, |this, e: Entity<OutputParams>, cx| {
-            println!("params updated");
             if !this.player.is_init() {
                 if let Some(path) = e.read(cx).path.clone() {
                     this.player.open(cx, &path).unwrap();
