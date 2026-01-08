@@ -2,7 +2,6 @@ use std::{path::PathBuf, sync::Arc};
 
 use gpui::*;
 use gpui_component::*;
-use rfd::FileDialog;
 
 use crate::{
     models::model::{OutputParams, WindowState},
@@ -66,29 +65,35 @@ fn main() {
         cx.on_action(open_about_window(window_state.clone()));
         cx.on_action(open_output_window(window_state, params_entity.clone()));
         cx.on_action(move |_: &Open, cx| {
-            let p = FileDialog::new()
-                .add_filter("video", &["mp4"])
-                .set_directory("/")
-                .pick_file();
-            if let Some(path) = p {
-                println!("DEBUG: picked file {}", path.to_string_lossy());
-                params_entity.update(cx, |p, cx| {
-                    p.path = Some(path);
-                    cx.notify();
-                });
-            }
+            let result = cx.prompt_for_paths(gpui::PathPromptOptions {
+                files: true,
+                directories: false,
+                multiple: false,
+                prompt: None,
+            });
+
+            let params = params_entity.clone();
+
+            cx.spawn(async move |cx: &mut AsyncApp| {
+                let Ok(r) = result.await else {
+                    return;
+                };
+                let Ok(r) = r else {
+                    return;
+                };
+                if let Some(paths) = r {
+                    println!("DEBUG: got some path: {:?}", paths);
+                    let path = paths[0].clone();
+                    cx.update(|cx| {
+                        params.update(cx, |p, _| {
+                            p.path = Some(path);
+                        })
+                    })
+                    .unwrap();
+                }
+            })
+            .detach();
         });
-
-        // cx.spawn(async move |acx| {
-        //     acx.open_window(WindowOptions::default(), |window, cx| {
-        //         let view = cx.new(|_| MyApp);
-        //         // This first level on the window, should be a Root.
-        //         cx.new(|cx| Root::new(view, window, cx))
-        //     })?;
-
-        //     Ok::<_, anyhow::Error>(())
-        // })
-        // .detach();
     });
 }
 
@@ -121,7 +126,6 @@ fn open_output_window(
                         show: true,
                         is_resizable: false,
                         is_minimizable: false,
-                        kind: WindowKind::PopUp,
                         ..Default::default()
                     },
                     |window, cx| {
