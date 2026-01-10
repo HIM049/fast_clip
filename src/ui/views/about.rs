@@ -15,6 +15,6 @@ impl Render for AboutView {
             .justify_center()
             .items_center()
             .font_medium()
-            .child("EazyClip")
+            .child("FastClip")
     }
 }

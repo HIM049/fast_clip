@@ -21,7 +21,7 @@ fn main() {
     ffmpeg_next::init().unwrap();
 
     let http = reqwest_client::ReqwestClient::user_agent(
-        format!("Eazycut/{}", env!("CARGO_PKG_VERSION")).as_str(),
+        format!("Fastclip/{}", env!("CARGO_PKG_VERSION")).as_str(),
     )
     .unwrap();
 
