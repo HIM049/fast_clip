@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::anyhow;
 use ffmpeg_next::{
-    Packet, Rational,
+    ChannelLayout, Packet, Rational,
     decoder::{self},
     format::{self, context, sample::Type},
     software::{
@@ -38,6 +38,14 @@ pub enum DecoderEvent {
     Seek(f32),
 }
 
+#[derive(Debug)]
+pub struct ResamplerParams {
+    format: format::Sample,
+    source_rate: u32,
+    target_format: format::Sample,
+    target_rate: u32,
+}
+
 pub struct VideoDecoder {
     input: Option<context::Input>,
     video_stream_ix: usize,
@@ -45,6 +53,7 @@ pub struct VideoDecoder {
     v_decoder: Option<decoder::Video>,
     a_decoder: Option<decoder::Audio>,
     time_base: Rational,
+    audio_time_base: Rational,
     duration: i64,
     device_sample_rate: u32,
 
@@ -121,17 +130,18 @@ impl VideoDecoder {
                 .audio()?;
 
         let time_base = v_stream.time_base();
+        let audio_time_base = a_stream.time_base();
         // get sample rate and length of video frams
         let frame_rate = v_stream.avg_frame_rate();
         let duration = v_stream.duration();
-        // get orignal video size
-        let orignal_width = v_decoder.width();
-        let orignal_height = v_decoder.height();
+        // get original video size
+        let original_width = v_decoder.width();
+        let original_height = v_decoder.height();
 
         println!("DEBUG: frame rate: {}, duration: {}", frame_rate, duration);
 
         size.update(cx, |s, _| {
-            s.set_orignal((orignal_width, orignal_height));
+            s.set_original((original_width, original_height));
         });
 
         // update related output params
@@ -147,6 +157,7 @@ impl VideoDecoder {
             v_decoder: Some(v_decoder),
             a_decoder: Some(a_decoder),
             time_base,
+            audio_time_base,
             duration,
             v_producer: None,
             a_producer: None,
@@ -161,8 +172,36 @@ impl VideoDecoder {
         })
     }
 
+    fn resampler_params(&self) -> anyhow::Result<ResamplerParams> {
+        let Some(a_decoder) = self.a_decoder.as_ref() else {
+            return Err(anyhow!("none decoder"));
+        };
+        Ok(ResamplerParams {
+            format: a_decoder.format(),
+            source_rate: a_decoder.rate(),
+            target_format: format::Sample::F32(Type::Packed),
+            target_rate: self.device_sample_rate,
+        })
+    }
+
+    fn create_resampler(
+        channel_layout: ChannelLayout,
+        params: &ResamplerParams,
+    ) -> anyhow::Result<resampling::context::Context> {
+        Ok(resampling::context::Context::get(
+            params.format,
+            channel_layout,
+            params.source_rate,
+            params.target_format,
+            channel_layout,
+            params.target_rate,
+        )?)
+    }
+
     /// spawn decoder thread
     pub fn spawn_decoder(&mut self, size: Entity<PlayerSize>, cx: &mut Context<MyApp>) {
+        let resampler_params = self.resampler_params().unwrap();
+
         let Some(mut input) = self.input.take() else {
             return;
         };
@@ -179,10 +218,10 @@ impl VideoDecoder {
             return;
         };
 
-        let device_sample_rate = self.device_sample_rate;
         let time_base = self.time_base;
+        let audio_time_base = self.audio_time_base;
 
-        let orignal_size = size.read(cx).orignal_size();
+        let original_size = size.read(cx).original_size();
 
         let video_ix = self.video_stream_ix;
         let audio_ix = self.audio_stream_ix;
@@ -191,6 +230,7 @@ impl VideoDecoder {
         let h = v_decoder.height();
         let event = self.event.clone();
         let condvar = self.condvar.clone();
+
         thread::spawn(move || {
             // init ffmpeg scaler
             let mut scaler = ffmpeg_next::software::scaling::Context::get(
@@ -204,17 +244,10 @@ impl VideoDecoder {
             )
             .unwrap();
 
-            println!("audio sample rate {}", a_decoder.rate());
+            println!("DEBUG: audio sample rate {}", a_decoder.rate());
 
-            let mut resampler = resampling::context::Context::get(
-                a_decoder.format(),
-                a_decoder.channel_layout(),
-                a_decoder.rate(),
-                format::Sample::F32(Type::Packed),
-                a_decoder.channel_layout(),
-                device_sample_rate,
-            )
-            .unwrap();
+            let mut resampler =
+                Self::create_resampler(a_decoder.channel_layout(), &resampler_params).unwrap();
 
             // frame buffer
             let mut next_video_frame: Option<FrameImage> = None;
@@ -228,7 +261,8 @@ impl VideoDecoder {
             let mut decoded_audio = ffmpeg_next::frame::Audio::empty();
             let mut resampled_audio = ffmpeg_next::frame::Audio::empty();
 
-            let mut seek_to: Option<f32> = None;
+            let mut seeking_to: Option<f32> = None;
+            let mut seek_state = (false, false);
             let mut is_read_finished = false;
             loop {
                 {
@@ -247,13 +281,29 @@ impl VideoDecoder {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
                             }
+
                             v_decoder.flush();
-                            seek_to = Some(t);
+                            a_decoder.flush();
+                            seeking_to = Some(t);
+                            seek_state = (false, false);
+
+                            // create new resampler
+                            resampler = Self::create_resampler(
+                                a_decoder.channel_layout(),
+                                &resampler_params,
+                            )
+                            .unwrap();
+
+                            video_pkt_queue.clear();
+                            audio_pkt_queue.clear();
+
+                            unsafe {
+                                a_producer.set_write_index(a_producer.read_index());
+                            }
                         }
                     }
                     *event = DecoderEvent::None;
                 }
-
                 // if no enough pkts, read from file
                 while !is_read_finished
                     && (video_pkt_queue.len() < 50 || audio_pkt_queue.len() < 100)
@@ -284,59 +334,87 @@ impl VideoDecoder {
                     }
                 }
 
-                // try receive decoded frame and push
-                if next_video_frame.is_none() && v_decoder.receive_frame(&mut decoded_frame).is_ok()
-                {
-                    // drop extra frames when seek
-                    if let Some(to) = seek_to {
-                        let target = (to * time_base.denominator() as f32) as i64;
+                // drop extra frames when seek
+                if let Some(to) = seeking_to {
+                    let target = (to * time_base.denominator() as f32) as i64;
+                    let audio_target = (to * audio_time_base.denominator() as f32) as i64;
+                    if !seek_state.0 && v_decoder.receive_frame(&mut decoded_frame).is_ok() {
                         if decoded_frame.pts().unwrap_or(0) < target {
                             continue;
                         } else {
-                            seek_to = None;
+                            println!("v skip to{:?}", decoded_frame.pts());
+                            scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
+                            next_video_frame = scale_frame(
+                                &mut scaled_frame,
+                                w,
+                                h,
+                                original_size,
+                                decoded_frame.pts().unwrap_or(0),
+                            );
+                            seek_state.0 = true;
                         }
                     }
-                    // convert frame
-                    scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
+                    if !seek_state.1 && a_decoder.receive_frame(&mut decoded_audio).is_ok() {
+                        if decoded_audio.pts().unwrap_or(0) < audio_target {
+                            continue;
+                        } else {
+                            println!("a skip to{:?}", decoded_audio.pts());
 
-                    let data = scaled_frame.data(0);
-                    let stride = scaled_frame.stride(0);
-
-                    let mut buffer = Vec::with_capacity((w * h * 4) as usize);
-                    for y in 0..h as usize {
-                        let start = y * stride;
-                        let end = start + (w as usize * 4);
-                        buffer.extend_from_slice(&data[start..end]);
-                    }
-
-                    next_video_frame = Some(FrameImage {
-                        image: generate_image_fallback(orignal_size, buffer),
-                        pts: decoded_frame.pts().unwrap_or(0),
-                    });
-                }
-
-                // if none ready audio sample
-                if next_audio_sample.is_none() {
-                    if a_decoder.receive_frame(&mut decoded_audio).is_ok() {
-                        // try receive audio frame and resample
-                        resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
-                    } else if audio_pkt_queue.len() == 0 {
-                        // queue are clear, release resampler
-                        if let Ok(r) = resampler.flush(&mut resampled_audio) {
-                            if r.is_none() {
-                                break;
+                            resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
+                            if resampled_audio.samples() > 0 {
+                                let raw_samples: &[f32] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        resampled_audio.data(0).as_ptr() as *const f32,
+                                        resampled_audio.samples()
+                                            * resampled_audio.channels() as usize,
+                                    )
+                                };
+                                next_audio_sample = Some(raw_samples.to_vec());
+                                seek_state.1 = true;
                             }
                         }
                     }
-                    if resampled_audio.samples() > 0 {
-                        let raw_samples: &[f32] = unsafe {
-                            std::slice::from_raw_parts(
-                                resampled_audio.data(0).as_ptr() as *const f32,
-                                resampled_audio.samples() * resampled_audio.channels() as usize,
-                            )
-                        };
+                    if seek_state == (true, true) {
+                        seeking_to = None;
+                    }
+                } else {
+                    // try receive decoded frame and push
+                    if next_video_frame.is_none()
+                        && v_decoder.receive_frame(&mut decoded_frame).is_ok()
+                    {
+                        // convert frame
+                        scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
+                        next_video_frame = scale_frame(
+                            &mut scaled_frame,
+                            w,
+                            h,
+                            original_size,
+                            decoded_frame.pts().unwrap_or(0),
+                        );
+                    }
 
-                        next_audio_sample = Some(raw_samples.to_vec());
+                    // if none ready audio sample
+                    if next_audio_sample.is_none() {
+                        if a_decoder.receive_frame(&mut decoded_audio).is_ok() {
+                            // try receive audio frame and resample
+                            resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
+                        } else if audio_pkt_queue.len() == 0 {
+                            // queue are clear, release resampler
+                            if let Ok(r) = resampler.flush(&mut resampled_audio) {
+                                if r.is_none() {
+                                    break;
+                                }
+                            }
+                        }
+                        if resampled_audio.samples() > 0 {
+                            let raw_samples: &[f32] = unsafe {
+                                std::slice::from_raw_parts(
+                                    resampled_audio.data(0).as_ptr() as *const f32,
+                                    resampled_audio.samples() * resampled_audio.channels() as usize,
+                                )
+                            };
+                            next_audio_sample = Some(raw_samples.to_vec());
+                        }
                     }
                 }
 
@@ -367,4 +445,27 @@ impl VideoDecoder {
             }
         });
     }
+}
+
+pub fn scale_frame(
+    scaled_frame: &mut ffmpeg_next::frame::Video,
+    width: u32,
+    height: u32,
+    original_size: (u32, u32),
+    pts: i64,
+) -> Option<FrameImage> {
+    let data = scaled_frame.data(0);
+    let stride = scaled_frame.stride(0);
+
+    let mut buffer = Vec::with_capacity((width * height * 4) as usize);
+    for y in 0..height as usize {
+        let start = y * stride;
+        let end = start + (width as usize * 4);
+        buffer.extend_from_slice(&data[start..end]);
+    }
+
+    Some(FrameImage {
+        image: generate_image_fallback(original_size, buffer),
+        pts,
+    })
 }

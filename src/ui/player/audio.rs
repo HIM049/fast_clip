@@ -1,9 +1,20 @@
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use anyhow::anyhow;
 use cpal::{
     StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use ringbuf::{HeapCons, traits::Consumer};
+use ringbuf::{
+    HeapCons,
+    traits::{Consumer, Observer},
+};
 
 pub struct AudioPlayer {
     _host: cpal::Host,
@@ -56,7 +67,14 @@ impl AudioPlayer {
         self.sample_rate
     }
 
-    pub fn spawn(&mut self, mut consumer: HeapCons<f32>) {
+    pub fn spawn(
+        &mut self,
+        mut consumer: HeapCons<f32>,
+        count: Arc<AtomicUsize>,
+        signal: Arc<AtomicBool>,
+    ) {
+        let channels = self.config.channels;
+
         let stream = self
             .device
             .build_output_stream(
@@ -69,6 +87,12 @@ impl AudioPlayer {
                     for sample in &mut data[r_lenth..] {
                         *sample = 0.0;
                     }
+                    signal.store(true, Ordering::Release);
+
+                    count.store(
+                        count.load(Ordering::Relaxed) + r_lenth / channels as usize,
+                        Ordering::Relaxed,
+                    );
                 },
                 move |err| {
                     println!("error when playing: {}", err);
@@ -84,6 +108,6 @@ impl AudioPlayer {
 
 impl Drop for AudioPlayer {
     fn drop(&mut self) {
-        println!("dropped player");
+        println!("DEBUG: dropped player");
     }
 }

@@ -1,4 +1,12 @@
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
+    thread,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
 
 use gpui::{Context, Entity, RenderImage, Window};
 use ringbuf::{
@@ -39,7 +47,6 @@ pub struct Player {
     producer: Option<HeapProd<FrameImage>>,
     a_producer: Option<HeapProd<f32>>,
     consumer: HeapCons<FrameImage>,
-    start_time: Option<Instant>,
     played_time: Option<f32>,
     state: PlayState,
 
@@ -48,6 +55,9 @@ pub struct Player {
     recent_pts: f32,
     is_time_set: bool,
     is_seeking: bool,
+
+    sample_count: Arc<AtomicUsize>,
+    play_signal: Arc<AtomicBool>,
 }
 
 impl Player {
@@ -59,7 +69,9 @@ impl Player {
         let rb = ringbuf::SharedRb::<Heap<f32>>::new(audio_player.sample_rate() as usize * 1);
         let (a_producer, a_consumer) = rb.split();
 
-        audio_player.spawn(a_consumer);
+        let sample_count = Arc::new(AtomicUsize::new(0));
+        let play_signal = Arc::new(AtomicBool::new(false));
+        audio_player.spawn(a_consumer, sample_count.clone(), play_signal.clone());
 
         Self {
             init: false,
@@ -71,7 +83,6 @@ impl Player {
             producer: Some(v_producer),
             a_producer: Some(a_producer),
             consumer: v_consumer,
-            start_time: None,
             played_time: None,
             state: PlayState::Stopped,
 
@@ -80,6 +91,9 @@ impl Player {
             recent_pts: 0.0,
             is_time_set: false,
             is_seeking: false,
+
+            sample_count,
+            play_signal,
         }
     }
 
@@ -111,13 +125,18 @@ impl Player {
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.spawn_decoder(self.size.clone(), cx);
             self.state = PlayState::Playing;
-            self.start_timer();
+            self.start_time();
         }
+    }
+
+    fn start_time(&mut self) {
+        self.sample_count.store(0, Ordering::Relaxed);
+        self.audio_player.play().unwrap();
     }
 
     pub fn resume_play(&mut self) {
         self.state = PlayState::Playing;
-        self.start_timer();
+        self.start_time();
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.set_event(DecoderEvent::None);
         }
@@ -133,7 +152,7 @@ impl Player {
 
     pub fn stop_play(&mut self) {
         self.state = PlayState::Stopped;
-        self.start_time = None;
+        // self.start_time = None;
         self.frame = generate_image_fallback((1, 1), vec![]);
         self.frame_buf = None;
         if let Some(decoder) = self.decoder.as_mut() {
@@ -155,14 +174,6 @@ impl Player {
 
     pub fn get_state(&self) -> PlayState {
         self.state
-    }
-
-    pub fn current_playtime(&self) -> f32 {
-        if let Some(start_time) = self.start_time {
-            start_time.elapsed().as_secs_f32() + self.played_time.unwrap_or(0.0)
-        } else {
-            self.played_time.unwrap_or(0.0)
-        }
     }
 
     pub fn play_percentage(&self) -> Option<f32> {
@@ -191,29 +202,21 @@ impl Player {
         Some((duration as f64 / timebase.denominator() as f64) as f32)
     }
 
-    fn start_timer(&mut self) {
-        self.start_time = Some(std::time::Instant::now());
+    // calc played samples time
+    fn played_sample_sec(&self) -> f32 {
+        self.sample_count.load(Ordering::Relaxed) as f32 / self.audio_player.sample_rate() as f32
     }
 
+    // calc current time
+    pub fn current_playtime(&self) -> f32 {
+        self.played_time.unwrap_or(0.0) + self.played_sample_sec()
+    }
+
+    // save current time & pause audio output
     fn pause_timer(&mut self) {
-        let Some(start_time) = self.start_time.take() else {
-            return;
-        };
-        if let Some(played) = self.played_time.take() {
-            self.played_time = Some(played + start_time.elapsed().as_secs_f32());
-        } else {
-            self.played_time = Some(start_time.elapsed().as_secs_f32());
-        }
-    }
-
-    fn play_time(&self) -> f32 {
-        let time_sec;
-        if let Some(time) = self.start_time {
-            time_sec = time.elapsed().as_secs_f32();
-        } else {
-            time_sec = 0.;
-        }
-        self.played_time.unwrap_or(0.) + time_sec
+        self.played_time = Some(self.current_playtime());
+        self.audio_player.pause().unwrap();
+        self.sample_count.store(0, Ordering::Relaxed);
     }
 
     fn frame_time(&self, pts: i64) -> Option<f32> {
@@ -232,12 +235,16 @@ impl Player {
             return FrameAction::Wait;
         };
         self.recent_pts = frame_time;
-        let play_time = self.play_time();
+        let play_time = self.current_playtime();
 
         if (play_time - frame_time).abs() <= 0.3 {
             if self.is_seeking {
+                self.play_signal.store(false, Ordering::Release);
+                self.audio_player.play().unwrap();
+                while !self.play_signal.load(Ordering::Acquire) {
+                    thread::sleep(Duration::from_millis(1));
+                }
                 self.is_seeking = false;
-                self.start_timer();
             }
             if frame_time <= play_time {
                 FrameAction::Render
@@ -258,16 +265,22 @@ impl Player {
 
     pub fn dbg_msg(&self) -> String {
         format!(
-            "PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, UNHANDLE_SET {}, DIFF {:.2}",
-            self.play_time(),
+            "
+            PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, UNHANDLE_SET {}, DIFF {:.2}\n
+            played_sample_sec {:.2}, played_time {:?}
+            ",
+            self.current_playtime(),
             self.recent_pts,
             self.is_seeking,
             self.is_time_set,
-            self.play_time() - self.recent_pts
+            self.current_playtime() - self.recent_pts,
+            self.played_sample_sec(),
+            self.played_time
         )
     }
 
     pub fn view(&mut self, w: &mut Window) -> Viewer {
+        self.played_sample_sec();
         // whether need to play next frames when need
         if self.state == PlayState::Playing {
             let next_frame: Option<FrameImage>;
