@@ -266,7 +266,7 @@ impl Player {
     pub fn dbg_msg(&self) -> String {
         format!(
             "
-            PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, UNHANDLE_SET {}, DIFF {:.2}\n
+            PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, UNHANDLE_SET {}, DIFF {:.2}
             played_sample_sec {:.2}, played_time {:?}
             ",
             self.current_playtime(),
