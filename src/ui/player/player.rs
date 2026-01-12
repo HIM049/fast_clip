@@ -105,18 +105,22 @@ impl Player {
     where
         T: 'static,
     {
-        self.decoder = Some(
-            VideoDecoder::open(
-                cx,
-                path,
-                self.size.clone(),
-                self.output_params.clone(),
-                self.audio_player.sample_rate(),
-            )
-            .unwrap()
-            .set_video_producer(self.producer.take().unwrap())
-            .set_audio_producer(self.a_producer.take().unwrap()),
+        let decoder = VideoDecoder::open(
+            cx,
+            path,
+            self.size.clone(),
+            self.output_params.clone(),
+            self.audio_player.sample_rate(),
         );
+        match decoder {
+            Ok(d) => {
+                let d = d
+                    .set_video_producer(self.producer.take().unwrap())
+                    .set_audio_producer(self.a_producer.take().unwrap());
+                self.decoder = Some(d);
+            }
+            Err(e) => println!("error: {}", e),
+        }
         self.init = true;
         Ok(())
     }

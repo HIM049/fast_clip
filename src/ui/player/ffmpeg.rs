@@ -120,10 +120,8 @@ impl VideoDecoder {
         let a_stream = i
             .streams()
             .best(ffmpeg_next::media::Type::Audio)
+            // .find(|s|{ s.id() == 2})
             .ok_or(anyhow!("failed to find video stream"))?;
-
-        // let codec = ffmpeg_next::decoder::find_by_name("av1_cuvid").unwrap();
-        // println!("decoder {}", codec.description());
 
         let d =
             ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?.decoder();
