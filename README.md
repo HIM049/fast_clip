@@ -21,4 +21,5 @@ a tiny video edit tool for make clips fast and eazy.
   - [ ] multiple audio stream
   - [ ] multiple audio stream mix
   - [ ] framerate resample
-  - [ ] decoder selector
+  - [x] auto decoder selector
+  - [ ] manual decoder selector

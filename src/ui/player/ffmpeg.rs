@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     collections::VecDeque,
     path::PathBuf,
     sync::{Arc, Condvar, Mutex},
@@ -8,8 +9,10 @@ use std::{
 
 use anyhow::anyhow;
 use ffmpeg_next::{
-    ChannelLayout, Packet, Rational,
+    ChannelLayout, Codec, Packet, Rational,
+    codec::Id,
     decoder::{self},
+    ffi::{AVCodecHWConfig, avcodec_get_hw_config},
     format::{self, context, sample::Type},
     software::{
         resampling,
@@ -119,10 +122,18 @@ impl VideoDecoder {
             .best(ffmpeg_next::media::Type::Audio)
             .ok_or(anyhow!("failed to find video stream"))?;
 
-        let v_decoder =
-            ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?
-                .decoder()
-                .video()?;
+        // let codec = ffmpeg_next::decoder::find_by_name("av1_cuvid").unwrap();
+        // println!("decoder {}", codec.description());
+
+        let d =
+            ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?.decoder();
+
+        let v_decoder = if let Some(codec) = find_best_codec(v_stream.parameters().id()) {
+            println!("DEBUG: useing codec: {}", codec.name());
+            d.open_as(codec)?.video()?
+        } else {
+            d.video()?
+        };
 
         let a_decoder =
             ffmpeg_next::codec::context::Context::from_parameters(a_stream.parameters())?
@@ -468,4 +479,35 @@ pub fn scale_frame(
         image: generate_image_fallback(original_size, buffer),
         pts,
     })
+}
+
+pub fn find_best_codec(id: ffmpeg_next::codec::Id) -> Option<Codec> {
+    let codec_name_base = match id {
+        ffmpeg_next::codec::Id::H264 => "h264",
+        ffmpeg_next::codec::Id::HEVC => "hevc",
+        ffmpeg_next::codec::Id::AV1 => "av1",
+        ffmpeg_next::codec::Id::VP9 => "vp9",
+        ffmpeg_next::codec::Id::MJPEG => "mjpeg",
+        _ => return None,
+    };
+
+    let hw_priorities = [
+        "cuvid",        // Nvidia (Windows/Linux) - 性能最好，自带显存管理
+        "videotoolbox", // macOS - 苹果原生，效率极高
+        "qsv",          // Intel (Windows/Linux) - QuickSync
+        "mediacodec",   // Android
+        "rkmpp",        // Rockchip (树莓派/开发板)
+    ];
+
+    // 3. 遍历尝试
+    for suffix in hw_priorities {
+        let candidate_name = format!("{}_{}", codec_name_base, suffix);
+        // try to find codec by name
+        let codec = ffmpeg_next::decoder::find_by_name(&candidate_name);
+        if codec.is_some() {
+            return codec;
+        }
+    }
+
+    None
 }
