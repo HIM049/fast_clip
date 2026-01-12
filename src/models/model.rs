@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gpui::{App, WindowHandle};
+use gpui::{Action, App, SharedString, WindowHandle};
 use gpui_component::Root;
 
 pub struct WindowState {
@@ -49,3 +49,7 @@ impl OutputParams {
         }
     }
 }
+
+#[derive(Action, Clone, PartialEq, Eq)]
+#[action(namespace = story, no_json)]
+pub struct SelectLocale(pub SharedString);

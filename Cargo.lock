@@ -1778,6 +1778,7 @@ dependencies = [
  "reqwest",
  "reqwest_client",
  "ringbuf",
+ "rust-i18n",
  "serde_json",
  "smallvec",
 ]

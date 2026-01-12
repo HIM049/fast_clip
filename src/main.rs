@@ -15,7 +15,9 @@ mod components;
 mod models;
 mod ui;
 
-actions!(app, [Quit, About, Open, Output]);
+rust_i18n::i18n!("locales", fallback = "en");
+
+actions!(app, [Quit, About, Open, Output, SelectLocale]);
 
 fn main() {
     ffmpeg_next::init().unwrap();

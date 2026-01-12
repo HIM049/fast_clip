@@ -1,0 +1,28 @@
+_version: 2
+menu.file:
+  en: "File"
+  zh-CN: "文件"
+
+menu.open:
+  en: "Open"
+  zh-CN: "打开"
+
+menu.close:
+  en: "Close"
+  zh-CN: "关闭"
+
+menu.quit:
+  en: "Quit"
+  zh-CN: "退出"
+
+menu.output:
+  en: "Output"
+  zh-CN: "导出"
+
+menu.about:
+  en: "About"
+  zh-CN: "关于"
+
+menu.language:
+  en: "Language"
+  zh-CN: "语言"
