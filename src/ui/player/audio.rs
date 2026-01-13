@@ -1,9 +1,6 @@
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
-    time::{SystemTime, UNIX_EPOCH},
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use anyhow::anyhow;
@@ -11,10 +8,7 @@ use cpal::{
     StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use ringbuf::{
-    HeapCons,
-    traits::{Consumer, Observer},
-};
+use ringbuf::{HeapCons, traits::Consumer};
 
 pub struct AudioPlayer {
     _host: cpal::Host,

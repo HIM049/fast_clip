@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     collections::VecDeque,
     path::PathBuf,
     sync::{Arc, Condvar, Mutex},
@@ -10,9 +9,7 @@ use std::{
 use anyhow::anyhow;
 use ffmpeg_next::{
     ChannelLayout, Codec, Packet, Rational,
-    codec::Id,
     decoder::{self},
-    ffi::{AVCodecHWConfig, avcodec_get_hw_config},
     format::{self, context, sample::Type},
     software::{
         resampling,
@@ -123,13 +120,23 @@ impl VideoDecoder {
             // .find(|s|{ s.id() == 2})
             .ok_or(anyhow!("failed to find video stream"))?;
 
+        for s in i.streams() {
+            println!(
+                "DEBUG: Checking audio list: id {}, rate {}, meta {:?}",
+                s.id(),
+                s.rate(),
+                s.metadata().get("encoder")
+            );
+        }
+
         let d =
             ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?.decoder();
 
         let v_decoder = if let Some(codec) = find_best_codec(v_stream.parameters().id()) {
-            println!("DEBUG: useing codec: {}", codec.name());
+            println!("DEBUG: decoder: useing codec: {}", codec.name());
             d.open_as(codec)?.video()?
         } else {
+            println!("DEBUG: decoder: failed to find codec");
             d.video()?
         };
 
@@ -480,6 +487,7 @@ pub fn scale_frame(
 }
 
 pub fn find_best_codec(id: ffmpeg_next::codec::Id) -> Option<Codec> {
+    println!("DEBUG: find_best_codec: ID: {:?}", id);
     let codec_name_base = match id {
         ffmpeg_next::codec::Id::H264 => "h264",
         ffmpeg_next::codec::Id::HEVC => "hevc",
