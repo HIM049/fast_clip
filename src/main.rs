@@ -17,7 +17,7 @@ mod ui;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
-actions!(app, [Quit, About, Open, Output, SelectLocale]);
+actions!(app, [Quit, About, Open, Close, Output, SelectLocale]);
 
 fn main() {
     ffmpeg_next::init().unwrap();
@@ -50,7 +50,7 @@ fn main() {
                     cx,
                 ))),
                 titlebar: Some(TitlebarOptions {
-                    title: Some("Picargo".into()),
+                    title: Some("FastClip".into()),
                     appears_transparent: true,
                     traffic_light_position: Some(gpui::point(px(9.0), px(9.0))),
                 }),

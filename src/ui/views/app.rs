@@ -1,13 +1,11 @@
 use gpui::{
-    AnyElement, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
-    div, prelude::FluentBuilder,
+    AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
+    Render, Styled, Window, div, prelude::FluentBuilder,
 };
-use gpui_component::{
-    ActiveTheme, StyledExt,
-    button::{Button, ButtonVariants},
-};
+use gpui_component::{ActiveTheme, StyledExt, button::Button};
 
 use crate::{
+    Close,
     components::app_title_bar::AppTitleBar,
     models::model::OutputParams,
     ui::{
@@ -47,6 +45,11 @@ impl MyApp {
 
     pub fn new_player(&mut self) {
         self.player = Player::new(self.size.clone(), self.output_parames.clone());
+    }
+
+    pub fn close_file(&mut self) {
+        self.selection_range = (None, None);
+        self.new_player();
     }
 
     pub fn run(&mut self, cx: &mut Context<Self>) {
@@ -110,6 +113,10 @@ impl Render for MyApp {
         self.listen_open(cx);
 
         div()
+            .on_action(cx.listener(|this, _: &Close, _, cx| {
+                this.close_file();
+                cx.notify();
+            }))
             .bg(cx.theme().background)
             .v_flex()
             .size_full()
@@ -201,17 +208,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                     )))
                 })
                 .when(play_state != PlayState::Stopped, |this| {
-                    this.child(
-                        Button::new("stop")
-                            .danger()
-                            .child("Stop")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.selection_range = (None, None);
-                                this.new_player();
-                                cx.notify()
-                            })),
-                    )
-                    .child(Button::new("min").child("-10s").on_click(cx.listener(
+                    this.child(Button::new("min").child("-10s").on_click(cx.listener(
                         |this, _, _, cx| {
                             this.player.set_playtime(|now, _| now - 10.);
                             cx.notify();

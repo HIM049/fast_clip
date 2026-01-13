@@ -2,7 +2,7 @@ use gpui::{App, Entity, Menu, MenuItem, SharedString};
 use gpui_component::{Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::{About, Open, Output, Quit, models::model::SelectLocale};
+use crate::{About, Close, Open, Output, Quit, models::model::SelectLocale};
 
 pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
@@ -46,7 +46,7 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
             name: SharedString::from(t!("menu.file")),
             items: vec![
                 MenuItem::action(t!("menu.open"), Open),
-                MenuItem::action(t!("menu.close"), Quit),
+                MenuItem::action(t!("menu.close"), Close),
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.output"), Output),
             ],
