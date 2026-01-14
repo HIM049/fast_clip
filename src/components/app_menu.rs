@@ -51,7 +51,14 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
                 MenuItem::action(t!("menu.output"), Output),
             ],
         },
-        language_menu(cx),
+        Menu {
+            name: SharedString::from(t!("menu.player")),
+            items: vec![MenuItem::action(t!("menu.audio"), Quit)],
+        },
+        Menu {
+            name: SharedString::from(t!("menu.settings")),
+            items: vec![language_menu()],
+        },
     ]);
 
     app_menu_bar.update(cx, |menu_bar, cx| {
@@ -59,15 +66,15 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
     })
 }
 
-fn language_menu(_: &App) -> Menu {
+fn language_menu() -> MenuItem {
     let locale = rust_i18n::locale().to_string();
-    Menu {
+    MenuItem::Submenu(Menu {
         name: SharedString::from(t!("menu.language")),
         items: vec![
             MenuItem::action("English", SelectLocale("en".into())).checked(locale == "en"),
             MenuItem::action("简体中文", SelectLocale("zh-CN".into())).checked(locale == "zh-CN"),
         ],
-    }
+    })
 }
 
 // fn theme_menu(cx: &App) -> MenuItem {

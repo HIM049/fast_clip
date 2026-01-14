@@ -26,3 +26,15 @@ menu.about:
 menu.language:
   en: "Language"
   zh-CN: "语言"
+
+menu.settings:
+  en: "Settings"
+  zh-CN: "设置"
+
+menu.player:
+  en: "Player"
+  zh-CN: "播放器"
+
+menu.audio:
+  en: "Audio"
+  zh-CN: "音频"
