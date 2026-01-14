@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
+    AnyElement, App, ClickEvent, Div, Element, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, rgba,
 };
@@ -42,8 +42,8 @@ impl RoundButton {
         self
     }
 
-    pub fn child(mut self, child: impl Into<AnyElement>) -> Self {
-        self.child = Some(child.into());
+    pub fn child(mut self, child: impl IntoElement) -> Self {
+        self.child = Some(child.into_any_element());
         self
     }
 
@@ -79,7 +79,7 @@ impl RenderOnce for RoundButton {
                 div.hover(|style| style.bg(default_color.darken(0.2)))
             })
             .when_some(self.label, |div, label| div.child(label))
-            .when_some(self.child, |div, child| div.child(child))
+            .when_some(self.child, |div: Stateful<Div>, child| div.child(child))
             .when_some(self.on_click, |div: Stateful<Div>, on_click| {
                 div.on_click(
                     move |event: &ClickEvent, window: &mut Window, cx: &mut App| {

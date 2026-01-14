@@ -1,14 +1,15 @@
 use gpui::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    Render, Styled, Window, div, prelude::FluentBuilder,
+    Render, Styled, Window, div, prelude::FluentBuilder, svg,
 };
-use gpui_component::{ActiveTheme, StyledExt, button::Button};
+use gpui_component::{ActiveTheme, StyledExt};
 
 use crate::{
     Close,
     components::app_title_bar::AppTitleBar,
     models::model::OutputParams,
     ui::{
+        assets::icons,
         button::RoundButton,
         chip::Chip,
         player::{
@@ -90,11 +91,13 @@ impl MyApp {
 
     fn listen_open(&mut self, cx: &mut Context<Self>) {
         cx.observe(&self.output_parames, |this, e: Entity<OutputParams>, cx| {
-            if !this.player.is_init() {
-                if let Some(path) = e.read(cx).path.clone() {
-                    this.player.open(cx, &path).unwrap();
-                    this.run(cx);
-                }
+            if this.player.is_init() {
+                this.close_file();
+            }
+
+            if let Some(path) = e.read(cx).path.clone() {
+                this.player.open(cx, &path).unwrap();
+                this.run(cx);
             }
         })
         .detach();
@@ -181,10 +184,10 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .gap_2()
                         .child(RoundButton::new("button_play").blue().label("P").on_click(
                             cx.listener(|this, _, _, cx| {
-                                if this.player.get_state() == PlayState::Playing {
-                                    this.player.pause_play();
-                                } else {
-                                    this.player.resume_play();
+                                match this.player.get_state() {
+                                    PlayState::Playing => this.player.pause_play(),
+                                    PlayState::Paused => this.player.resume_play(),
+                                    PlayState::Stopped => (),
                                 }
                                 cx.notify();
                             }),

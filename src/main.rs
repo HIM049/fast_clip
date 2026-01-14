@@ -6,6 +6,7 @@ use gpui_component::*;
 use crate::{
     models::model::{OutputParams, WindowState},
     ui::{
+        assets::assets::Assets,
         player::size::PlayerSize,
         views::{about::AboutView, app::MyApp, output::OutputView},
     },
@@ -27,7 +28,9 @@ fn main() {
     )
     .unwrap();
 
-    let app = Application::new().with_assets(gpui_component_assets::Assets);
+    let app = Application::new()
+        .with_assets(Assets)
+        .with_assets(gpui_component_assets::Assets);
 
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.

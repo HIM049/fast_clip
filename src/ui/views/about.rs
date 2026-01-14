@@ -1,4 +1,4 @@
-use gpui::{ParentElement, Render, Styled, div};
+use gpui::{ParentElement, Render, Styled, div, svg};
 use gpui_component::StyledExt;
 
 pub struct AboutView;
@@ -15,6 +15,11 @@ impl Render for AboutView {
             .justify_center()
             .items_center()
             .font_medium()
-            .child("FastClip")
+            .child(
+                svg()
+                    .path("icons/play_arrow.svg")
+                    .size_10()
+                    .text_color(gpui::white()),
+            )
     }
 }
