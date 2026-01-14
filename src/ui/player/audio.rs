@@ -75,9 +75,9 @@ impl AudioPlayer {
                 &self.config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                     let r_lenth = consumer.pop_slice(data);
-                    // for sample in &mut data[..r_lenth] {
-                    //     *sample = *sample;
-                    // }
+                    for sample in &mut data[..r_lenth] {
+                        *sample *= 0.3;
+                    }
                     for sample in &mut data[r_lenth..] {
                         *sample = 0.0;
                     }

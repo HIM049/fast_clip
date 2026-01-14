@@ -23,3 +23,6 @@ a tiny video edit tool for make clips fast and eazy.
   - [ ] framerate resample
   - [x] auto decoder selector
   - [ ] manual decoder selector
+  - [ ] keyboard binding
+  - [ ] volume adjust
+  - [ ] buttons: [next/front key frame, to A/B, +-1min, ...]
