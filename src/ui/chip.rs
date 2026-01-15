@@ -18,7 +18,7 @@ impl Chip {
 }
 
 impl RenderOnce for Chip {
-    fn render(self, window: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
+    fn render(self, _: &mut gpui::Window, _: &mut gpui::App) -> impl gpui::IntoElement {
         div()
             .flex()
             .justify_center()

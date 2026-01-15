@@ -102,6 +102,6 @@ impl AudioPlayer {
 
 impl Drop for AudioPlayer {
     fn drop(&mut self) {
-        println!("DEBUG: dropped player");
+        println!("DEBUG: player dropped");
     }
 }

@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, Element, ElementId, Hsla, InteractiveElement, IntoElement,
+    AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, px, rgba, svg,
+    prelude::FluentBuilder, rgba, svg,
 };
 use gpui_component::{Colorize, StyledExt};
 
@@ -71,7 +71,7 @@ impl RoundButton {
 }
 
 impl RenderOnce for RoundButton {
-    fn render(self, window: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
+    fn render(self, _: &mut gpui::Window, _: &mut gpui::App) -> impl gpui::IntoElement {
         let bg_color = self.color.unwrap_or(rgba(0xffffff40).into());
         div()
             .id(self.id)

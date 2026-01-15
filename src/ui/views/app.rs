@@ -1,9 +1,9 @@
 use app_assets::icons;
 use gpui::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    Render, Styled, Window, div, prelude::FluentBuilder, svg,
+    Render, Styled, Window, div, prelude::FluentBuilder,
 };
-use gpui_component::{ActiveTheme, Icon, StyledExt};
+use gpui_component::{ActiveTheme, StyledExt};
 
 use crate::{
     Close,
@@ -92,7 +92,7 @@ impl MyApp {
     fn listen_open(&mut self, cx: &mut Context<Self>) {
         cx.observe(&self.output_parames, |this, e: Entity<OutputParams>, cx| {
             if this.player.is_init() {
-                this.close_file();
+                return;
             }
 
             if let Some(path) = e.read(cx).path.clone() {
@@ -200,16 +200,6 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 })),
                         )
                         .child(
-                            RoundButton::new("last")
-                                .icon_path(icons::rounded::SKIP_PREVIOUS_FILLED)
-                                .on_click(cx.listener(|this, _, _, cx| {})),
-                        )
-                        .child(
-                            RoundButton::new("next")
-                                .icon_path(icons::rounded::SKIP_NEXT_FILLED)
-                                .on_click(cx.listener(|this, _, _, cx| {})),
-                        )
-                        .child(
                             RoundButton::new("replay")
                                 .icon_path(icons::rounded::REPLAY_10_FILLED)
                                 .small_icon()
@@ -225,6 +215,24 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.player.set_playtime(|now, _| now + 10.);
                                     cx.notify();
+                                })),
+                        )
+                        .child(
+                            RoundButton::new("last")
+                                .icon_path(icons::rounded::SKIP_PREVIOUS_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    if let Some(start) = this.selection_range.0 {
+                                        this.player.set_playtime(|_, dur| dur * start);
+                                    }
+                                })),
+                        )
+                        .child(
+                            RoundButton::new("next")
+                                .icon_path(icons::rounded::SKIP_NEXT_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    if let Some(end) = this.selection_range.1 {
+                                        this.player.set_playtime(|_, dur| dur * end);
+                                    }
                                 })),
                         )
                         .child(RoundButton::new("a").label("A").on_click(cx.listener(

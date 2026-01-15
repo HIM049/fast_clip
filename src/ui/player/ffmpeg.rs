@@ -358,7 +358,6 @@ impl VideoDecoder {
                         if decoded_frame.pts().unwrap_or(0) < target {
                             continue;
                         } else {
-                            println!("v skip to{:?}", decoded_frame.pts());
                             scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
                             next_video_frame = scale_frame(
                                 &mut scaled_frame,
@@ -374,8 +373,6 @@ impl VideoDecoder {
                         if decoded_audio.pts().unwrap_or(0) < audio_target {
                             continue;
                         } else {
-                            println!("a skip to{:?}", decoded_audio.pts());
-
                             resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
                             if resampled_audio.samples() > 0 {
                                 let raw_samples: &[f32] = unsafe {

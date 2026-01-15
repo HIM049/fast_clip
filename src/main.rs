@@ -27,11 +27,7 @@ fn main() {
     )
     .unwrap();
 
-    let asset = app_assets::Assets;
-    println!("list : {:?}", asset.list("icons"));
-
     let app = Application::new().with_assets(app_assets::Assets);
-
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
