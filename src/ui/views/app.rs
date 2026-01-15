@@ -237,13 +237,17 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(RoundButton::new("a").label("A").on_click(cx.listener(
                             |this, _, _, cx| {
-                                this.set_range(cx, (Some(this.play_percent()), None));
+                                if this.player.get_state() != PlayState::Stopped {
+                                    this.set_range(cx, (Some(this.play_percent()), None));
+                                }
                                 cx.notify();
                             },
                         )))
                         .child(RoundButton::new("b").label("B").on_click(cx.listener(
                             |this, _, _, cx| {
-                                this.set_range(cx, (None, Some(this.play_percent())));
+                                if this.player.get_state() != PlayState::Stopped {
+                                    this.set_range(cx, (None, Some(this.play_percent())));
+                                }
                                 cx.notify();
                             },
                         ))),
