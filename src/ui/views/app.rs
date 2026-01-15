@@ -6,7 +6,7 @@ use gpui::{
 use gpui_component::{ActiveTheme, StyledExt};
 
 use crate::{
-    Close,
+    Back, Close, Forward, SetEnd, SetStart, SwitchPlay,
     components::app_title_bar::AppTitleBar,
     models::model::OutputParams,
     ui::{
@@ -111,6 +111,7 @@ impl MyApp {
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.player.get_state() == PlayState::Playing {
+            cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
             });
@@ -124,10 +125,13 @@ impl Render for MyApp {
             .child(
                 div()
                     .track_focus(&self.focus_handle)
-                    .on_action(cx.listener(|this, _: &Close, _, cx| {
-                        this.close_file();
-                        cx.notify();
-                    }))
+                    .on_action(cx.listener(on_close_file))
+                    .on_action(cx.listener(on_switch))
+                    .on_action(cx.listener(on_back))
+                    .on_action(cx.listener(on_foward))
+                    .on_action(cx.listener(on_set_start))
+                    .on_action(cx.listener(on_set_end))
+                    .focus(|s| s.debug_blue())
                     .v_flex()
                     .size_full()
                     .min_h_0()
@@ -183,39 +187,26 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .h_flex()
                         .gap_2()
                         .child(
-                            RoundButton::new("button_play")
+                            RoundButton::new("switch_play")
                                 .blue()
                                 .when_else(
                                     play_state != PlayState::Playing,
                                     |this| this.icon_path(icons::rounded::PLAY_FILLED),
                                     |this| this.icon_path(icons::rounded::PAUSE_FILLED),
                                 )
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    match this.player.get_state() {
-                                        PlayState::Playing => this.player.pause_play(),
-                                        PlayState::Paused => this.player.resume_play(),
-                                        PlayState::Stopped => (),
-                                    }
-                                    cx.notify();
-                                })),
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SwitchPlay), cx)),
                         )
                         .child(
-                            RoundButton::new("replay")
+                            RoundButton::new("back")
                                 .icon_path(icons::rounded::REPLAY_10_FILLED)
                                 .small_icon()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.player.set_playtime(|now, _| now - 10.);
-                                    cx.notify();
-                                })),
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(Back), cx)),
                         )
                         .child(
                             RoundButton::new("forward")
                                 .icon_path(icons::rounded::FORWARD_10_FILLED)
                                 .small_icon()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.player.set_playtime(|now, _| now + 10.);
-                                    cx.notify();
-                                })),
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(Forward), cx)),
                         )
                         .child(
                             RoundButton::new("last")
@@ -224,6 +215,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                     if let Some(start) = this.selection_range.0 {
                                         this.player.set_playtime(|_, dur| dur * start);
                                     }
+                                    cx.notify();
                                 })),
                         )
                         .child(
@@ -233,24 +225,19 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                     if let Some(end) = this.selection_range.1 {
                                         this.player.set_playtime(|_, dur| dur * end);
                                     }
+                                    cx.notify();
                                 })),
                         )
-                        .child(RoundButton::new("a").label("A").on_click(cx.listener(
-                            |this, _, _, cx| {
-                                if this.player.get_state() != PlayState::Stopped {
-                                    this.set_range(cx, (Some(this.play_percent()), None));
-                                }
-                                cx.notify();
-                            },
-                        )))
-                        .child(RoundButton::new("b").label("B").on_click(cx.listener(
-                            |this, _, _, cx| {
-                                if this.player.get_state() != PlayState::Stopped {
-                                    this.set_range(cx, (None, Some(this.play_percent())));
-                                }
-                                cx.notify();
-                            },
-                        ))),
+                        .child(
+                            RoundButton::new("a")
+                                .label("A")
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SetStart), cx)),
+                        )
+                        .child(
+                            RoundButton::new("b")
+                                .label("B")
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
+                        ),
                 )
                 .when_else(
                     play_state != PlayState::Stopped,
@@ -265,6 +252,41 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                 ),
         )
         .into_any_element()
+}
+
+fn on_close_file(this: &mut MyApp, _: &Close, _: &mut Window, cx: &mut Context<MyApp>) {
+    this.close_file();
+    cx.notify();
+}
+fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<MyApp>) {
+    match this.player.get_state() {
+        PlayState::Playing => this.player.pause_play(),
+        PlayState::Paused => this.player.resume_play(),
+        PlayState::Stopped => (),
+    }
+    cx.notify();
+}
+fn on_back(this: &mut MyApp, _: &Back, w: &mut Window, cx: &mut Context<MyApp>) {
+    this.player.set_playtime(|now, _| now - 10.);
+    cx.notify();
+}
+fn on_foward(this: &mut MyApp, _: &Forward, w: &mut Window, cx: &mut Context<MyApp>) {
+    this.player.set_playtime(|now, _| now + 10.);
+    cx.notify();
+}
+
+fn on_set_start(this: &mut MyApp, _: &SetStart, w: &mut Window, cx: &mut Context<MyApp>) {
+    println!("set start");
+    if this.player.get_state() != PlayState::Stopped {
+        this.set_range(cx, (Some(this.play_percent()), None));
+    }
+    cx.notify();
+}
+fn on_set_end(this: &mut MyApp, _: &SetEnd, w: &mut Window, cx: &mut Context<MyApp>) {
+    if this.player.get_state() != PlayState::Stopped {
+        this.set_range(cx, (None, Some(this.play_percent())));
+    }
+    cx.notify();
 }
 
 fn format_sec(sec: f32) -> String {

@@ -17,7 +17,11 @@ mod ui;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
-actions!(app, [Quit, About, Open, Close, Output, SelectLocale]);
+actions!(menu, [Quit, About, Open, Close, Output, SelectLocale]);
+
+actions!([
+    Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd
+]);
 
 fn main() {
     ffmpeg_next::init().unwrap();
@@ -37,10 +41,13 @@ fn main() {
         let params_entity: Entity<OutputParams> = cx.new(|_| OutputParams::default());
         let window_state = cx.new(|_| WindowState::default());
 
+        cx.bind_keys([KeyBinding::new("space", SwitchPlay, None)]);
+        cx.bind_keys([KeyBinding::new("left", Back, None)]);
+        cx.bind_keys([KeyBinding::new("right", Forward, None)]);
+        cx.bind_keys([KeyBinding::new("[", SetStart, None)]);
+        cx.bind_keys([KeyBinding::new("]", SetEnd, None)]);
+
         cx.set_http_client(Arc::new(http));
-        cx.on_action(|_: &Quit, cx| {
-            cx.quit();
-        });
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
@@ -63,6 +70,9 @@ fn main() {
         )
         .unwrap();
 
+        cx.on_action(|_: &Quit, cx| {
+            cx.quit();
+        });
         cx.on_action(open_about_window(window_state.clone()));
         cx.on_action(open_output_window(window_state, params_entity.clone()));
         cx.on_action(move |_: &Open, cx| {
