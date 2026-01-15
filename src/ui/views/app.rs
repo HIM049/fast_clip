@@ -266,23 +266,23 @@ fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<
     }
     cx.notify();
 }
-fn on_back(this: &mut MyApp, _: &Back, w: &mut Window, cx: &mut Context<MyApp>) {
+fn on_back(this: &mut MyApp, _: &Back, _: &mut Window, cx: &mut Context<MyApp>) {
     this.player.set_playtime(|now, _| now - 10.);
     cx.notify();
 }
-fn on_foward(this: &mut MyApp, _: &Forward, w: &mut Window, cx: &mut Context<MyApp>) {
+fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyApp>) {
     this.player.set_playtime(|now, _| now + 10.);
     cx.notify();
 }
 
-fn on_set_start(this: &mut MyApp, _: &SetStart, w: &mut Window, cx: &mut Context<MyApp>) {
+fn on_set_start(this: &mut MyApp, _: &SetStart, _: &mut Window, cx: &mut Context<MyApp>) {
     println!("set start");
     if this.player.get_state() != PlayState::Stopped {
         this.set_range(cx, (Some(this.play_percent()), None));
     }
     cx.notify();
 }
-fn on_set_end(this: &mut MyApp, _: &SetEnd, w: &mut Window, cx: &mut Context<MyApp>) {
+fn on_set_end(this: &mut MyApp, _: &SetEnd, _: &mut Window, cx: &mut Context<MyApp>) {
     if this.player.get_state() != PlayState::Stopped {
         this.set_range(cx, (None, Some(this.play_percent())));
     }
@@ -298,7 +298,7 @@ fn format_sec(sec: f32) -> String {
 }
 
 impl Focusable for MyApp {
-    fn focus_handle(&self, cx: &gpui::App) -> gpui::FocusHandle {
+    fn focus_handle(&self, _: &gpui::App) -> gpui::FocusHandle {
         self.focus_handle.clone()
     }
 }
