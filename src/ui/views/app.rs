@@ -185,7 +185,11 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .child(
                             RoundButton::new("button_play")
                                 .blue()
-                                .icon_path(icons::rounded::PLAY_FILLED)
+                                .when_else(
+                                    play_state != PlayState::Playing,
+                                    |this| this.icon_path(icons::rounded::PLAY_FILLED),
+                                    |this| this.icon_path(icons::rounded::PAUSE_FILLED),
+                                )
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     match this.player.get_state() {
                                         PlayState::Playing => this.player.pause_play(),
@@ -196,16 +200,28 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 })),
                         )
                         .child(
-                            RoundButton::new("back")
+                            RoundButton::new("last")
                                 .icon_path(icons::rounded::SKIP_PREVIOUS_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {})),
+                        )
+                        .child(
+                            RoundButton::new("next")
+                                .icon_path(icons::rounded::SKIP_NEXT_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {})),
+                        )
+                        .child(
+                            RoundButton::new("replay")
+                                .icon_path(icons::rounded::REPLAY_10_FILLED)
+                                .small_icon()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.player.set_playtime(|now, _| now - 10.);
                                     cx.notify();
                                 })),
                         )
                         .child(
-                            RoundButton::new("foward")
-                                .icon_path(icons::rounded::SKIP_NEXT_FILLED)
+                            RoundButton::new("forward")
+                                .icon_path(icons::rounded::FORWARD_10_FILLED)
+                                .small_icon()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.player.set_playtime(|now, _| now + 10.);
                                     cx.notify();

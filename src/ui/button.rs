@@ -3,7 +3,7 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, ClickEvent, Div, Element, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, rgba, svg,
+    prelude::FluentBuilder, px, rgba, svg,
 };
 use gpui_component::{Colorize, StyledExt};
 
@@ -14,6 +14,7 @@ pub struct RoundButton {
     color: Option<Hsla>,
     label: Option<String>,
     icon: Option<String>,
+    small_icon: bool,
     child: Option<AnyElement>,
 }
 
@@ -25,6 +26,7 @@ impl RoundButton {
             color: None,
             label: None,
             icon: None,
+            small_icon: false,
             child: None,
         }
     }
@@ -54,6 +56,11 @@ impl RoundButton {
         self
     }
 
+    pub fn small_icon(mut self) -> Self {
+        self.small_icon = true;
+        self
+    }
+
     pub fn on_click(
         mut self,
         listener: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -80,26 +87,27 @@ impl RenderOnce for RoundButton {
             .font_bold()
             .hover(|style| style.bg(bg_color.darken(0.2)))
             .active(|style| style.bg(bg_color.lighten(0.2)))
-            .when_some(self.icon, |div, path| {
-                div.child(
-                    svg()
-                        .path(path)
-                        .size_6()
-                        .text_color(gpui::white().alpha(0.8)),
-                )
-            })
-            .when_some(self.label, |this, label| {
-                this.child(
+            .child(
+                div().child(
                     div()
-                        .min_w_6()
                         .min_h_6()
+                        .min_w_6()
                         .flex()
                         .justify_center()
                         .items_center()
-                        .child(label),
-                )
-            })
-            .when_some(self.child, |div: Stateful<Div>, child| div.child(child))
+                        .when_some(self.icon, |this, path| {
+                            this.child(
+                                svg()
+                                    .path(path)
+                                    .size_6()
+                                    .when(self.small_icon, |this| this.size_5())
+                                    .text_color(gpui::white().alpha(0.8)),
+                            )
+                        })
+                        .when_some(self.child, |this, child| this.child(child))
+                        .when_some(self.label, |this, label| this.child(label)),
+                ),
+            )
             .when_some(self.on_click, |div: Stateful<Div>, on_click| {
                 div.on_click(
                     move |event: &ClickEvent, window: &mut Window, cx: &mut App| {
