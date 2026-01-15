@@ -110,8 +110,6 @@ impl MyApp {
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        cx.focus_self(window);
-
         if self.player.get_state() == PlayState::Playing {
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
@@ -119,17 +117,17 @@ impl Render for MyApp {
         }
 
         div()
-            .track_focus(&self.focus_handle)
-            .on_action(cx.listener(|this, _: &Close, _, cx| {
-                this.close_file();
-                cx.notify();
-            }))
             .bg(cx.theme().background)
             .v_flex()
             .size_full()
             .child(self.title_bar.clone())
             .child(
                 div()
+                    .track_focus(&self.focus_handle)
+                    .on_action(cx.listener(|this, _: &Close, _, cx| {
+                        this.close_file();
+                        cx.notify();
+                    }))
                     .v_flex()
                     .size_full()
                     .min_h_0()
