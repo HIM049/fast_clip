@@ -1,7 +1,7 @@
 use app_assets::icons;
 use gpui::{
-    AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    Render, Styled, Window, div, prelude::FluentBuilder,
+    AnyElement, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, ParentElement, Render, Styled, Window, div, prelude::FluentBuilder,
 };
 use gpui_component::{ActiveTheme, StyledExt};
 
@@ -27,6 +27,7 @@ pub struct MyApp {
     player: Player,
     // here selection_range is percentage of progress
     selection_range: (Option<f32>, Option<f32>),
+    focus_handle: FocusHandle,
 }
 
 impl MyApp {
@@ -36,6 +37,8 @@ impl MyApp {
         param_entity: Entity<OutputParams>,
     ) -> Self {
         let title_bar = cx.new(|cx| AppTitleBar::new("EzClip", cx));
+        let focus_handle = cx.focus_handle();
+        Self::listen_open(&param_entity, cx);
 
         Self {
             title_bar,
@@ -43,6 +46,7 @@ impl MyApp {
             output_parames: param_entity.clone(),
             player: Player::new(size_entity, param_entity),
             selection_range: (None, None),
+            focus_handle,
         }
     }
 
@@ -89,10 +93,10 @@ impl MyApp {
         None
     }
 
-    fn listen_open(&mut self, cx: &mut Context<Self>) {
-        cx.observe(&self.output_parames, |this, e: Entity<OutputParams>, cx| {
+    fn listen_open(params: &Entity<OutputParams>, cx: &mut Context<Self>) {
+        cx.observe(params, |this, e: Entity<OutputParams>, cx| {
             if this.player.is_init() {
-                return;
+                this.close_file();
             }
 
             if let Some(path) = e.read(cx).path.clone() {
@@ -102,22 +106,20 @@ impl MyApp {
         })
         .detach();
     }
-
-    fn play_loop(window: &mut Window, cx: &mut Context<Self>) {
-        cx.on_next_frame(window, |this, _, cx| {
-            if this.player.get_state() == PlayState::Playing {
-                cx.notify();
-            }
-        });
-    }
 }
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        Self::play_loop(window, cx);
-        self.listen_open(cx);
+        cx.focus_self(window);
+
+        if self.player.get_state() == PlayState::Playing {
+            cx.on_next_frame(window, |_, _, cx| {
+                cx.notify();
+            });
+        }
 
         div()
+            .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &Close, _, cx| {
                 this.close_file();
                 cx.notify();
@@ -269,4 +271,10 @@ fn format_sec(sec: f32) -> String {
         sec.round() as i32 / 60,
         sec.round() as i32 % 60,
     )
+}
+
+impl Focusable for MyApp {
+    fn focus_handle(&self, cx: &gpui::App) -> gpui::FocusHandle {
+        self.focus_handle.clone()
+    }
 }
