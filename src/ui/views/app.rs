@@ -209,7 +209,17 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("last")
-                                .icon_path(icons::rounded::SKIP_PREVIOUS_FILLED)
+                                .icon_path(icons::rounded::FIRST_PAGE_FILLED)
+                                .on_click(|_, _, _| {}),
+                        )
+                        .child(
+                            RoundButton::new("next")
+                                .icon_path(icons::rounded::LAST_PAGE_FILLED)
+                                .on_click(|_, _, _| {}),
+                        )
+                        .child(
+                            RoundButton::new("beginning")
+                                .icon_path(icons::rounded::KEYBOARD_TAB_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(start) = this.selection_range.0 {
                                         this.player.set_playtime(|_, dur| dur * start);
@@ -218,8 +228,8 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 })),
                         )
                         .child(
-                            RoundButton::new("next")
-                                .icon_path(icons::rounded::SKIP_NEXT_FILLED)
+                            RoundButton::new("end")
+                                .icon_path(icons::rounded::KEYBOARD_TAB_R_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(end) = this.selection_range.1 {
                                         this.player.set_playtime(|_, dur| dur * end);
