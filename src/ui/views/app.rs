@@ -1,15 +1,15 @@
+use app_assets::icons;
 use gpui::{
     AnyElement, AppContext, Context, Entity, InteractiveElement, IntoElement, ParentElement,
     Render, Styled, Window, div, prelude::FluentBuilder, svg,
 };
-use gpui_component::{ActiveTheme, StyledExt};
+use gpui_component::{ActiveTheme, Icon, StyledExt};
 
 use crate::{
     Close,
     components::app_title_bar::AppTitleBar,
     models::model::OutputParams,
     ui::{
-        assets::icons,
         button::RoundButton,
         chip::Chip,
         player::{
@@ -182,28 +182,35 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                     div()
                         .h_flex()
                         .gap_2()
-                        .child(RoundButton::new("button_play").blue().label("P").on_click(
-                            cx.listener(|this, _, _, cx| {
-                                match this.player.get_state() {
-                                    PlayState::Playing => this.player.pause_play(),
-                                    PlayState::Paused => this.player.resume_play(),
-                                    PlayState::Stopped => (),
-                                }
-                                cx.notify();
-                            }),
-                        ))
-                        .child(RoundButton::new("back").label("|<").on_click(cx.listener(
-                            |this, _, _, cx| {
-                                this.player.set_playtime(|now, _| now - 10.);
-                                cx.notify();
-                            },
-                        )))
-                        .child(RoundButton::new("foward").label(">|").on_click(cx.listener(
-                            |this, _, _, cx| {
-                                this.player.set_playtime(|now, _| now + 10.);
-                                cx.notify();
-                            },
-                        )))
+                        .child(
+                            RoundButton::new("button_play")
+                                .blue()
+                                .icon_path(icons::rounded::PLAY_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    match this.player.get_state() {
+                                        PlayState::Playing => this.player.pause_play(),
+                                        PlayState::Paused => this.player.resume_play(),
+                                        PlayState::Stopped => (),
+                                    }
+                                    cx.notify();
+                                })),
+                        )
+                        .child(
+                            RoundButton::new("back")
+                                .icon_path(icons::rounded::SKIP_PREVIOUS_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.player.set_playtime(|now, _| now - 10.);
+                                    cx.notify();
+                                })),
+                        )
+                        .child(
+                            RoundButton::new("foward")
+                                .icon_path(icons::rounded::SKIP_NEXT_FILLED)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.player.set_playtime(|now, _| now + 10.);
+                                    cx.notify();
+                                })),
+                        )
                         .child(RoundButton::new("a").label("A").on_click(cx.listener(
                             |this, _, _, cx| {
                                 this.set_range(cx, (Some(this.play_percent()), None));

@@ -1,0 +1,12 @@
+[package]
+name = "app_assets"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+rust-embed ={ version = "8.11.0", features = ["interpolate-folder-path"]}
+gpui.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true

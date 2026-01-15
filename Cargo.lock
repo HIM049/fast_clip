@@ -98,6 +98,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
+name = "app_assets"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gpui",
+ "rust-embed",
+]
+
+[[package]]
 name = "ar_archive_writer"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1768,6 +1777,7 @@ name = "fast_clip"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "app_assets",
  "async-channel 2.5.0",
  "cpal",
  "ffmpeg-next",
@@ -1778,7 +1788,6 @@ dependencies = [
  "reqwest",
  "reqwest_client",
  "ringbuf",
- "rust-embed",
  "rust-i18n",
  "serde_json",
  "smallvec",

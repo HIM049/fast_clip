@@ -3,7 +3,7 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, ClickEvent, Div, Element, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, rgba,
+    prelude::FluentBuilder, rgba, svg,
 };
 use gpui_component::{Colorize, StyledExt};
 
@@ -13,6 +13,7 @@ pub struct RoundButton {
     on_click: Option<Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
     color: Option<Hsla>,
     label: Option<String>,
+    icon: Option<String>,
     child: Option<AnyElement>,
 }
 
@@ -23,6 +24,7 @@ impl RoundButton {
             on_click: None,
             color: None,
             label: None,
+            icon: None,
             child: None,
         }
     }
@@ -47,6 +49,11 @@ impl RoundButton {
         self
     }
 
+    pub fn icon_path(mut self, path: impl Into<String>) -> Self {
+        self.icon = Some(path.into());
+        self
+    }
+
     pub fn on_click(
         mut self,
         listener: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -58,27 +65,40 @@ impl RoundButton {
 
 impl RenderOnce for RoundButton {
     fn render(self, window: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
-        let default_color: Hsla = rgba(0xffffff40).into();
+        let bg_color = self.color.unwrap_or(rgba(0xffffff40).into());
         div()
             .id(self.id)
             .flex()
             .justify_center()
             .items_center()
-            .when_some(self.color, |div, color| div.bg(color))
-            .when_none(&self.color, |div| div.bg(default_color))
+            .bg(bg_color)
             .border_1()
             .border_color(rgba(0xffffff4d))
-            .px_5()
+            .px_3()
             .py_1()
             .rounded_full()
             .font_bold()
-            .when_some(self.color, |div, color| {
-                div.hover(|style| style.bg(color.darken(0.2)))
+            .hover(|style| style.bg(bg_color.darken(0.2)))
+            .active(|style| style.bg(bg_color.lighten(0.2)))
+            .when_some(self.icon, |div, path| {
+                div.child(
+                    svg()
+                        .path(path)
+                        .size_6()
+                        .text_color(gpui::white().alpha(0.8)),
+                )
             })
-            .when_none(&self.color, |div| {
-                div.hover(|style| style.bg(default_color.darken(0.2)))
+            .when_some(self.label, |this, label| {
+                this.child(
+                    div()
+                        .min_w_6()
+                        .min_h_6()
+                        .flex()
+                        .justify_center()
+                        .items_center()
+                        .child(label),
+                )
             })
-            .when_some(self.label, |div, label| div.child(label))
             .when_some(self.child, |div: Stateful<Div>, child| div.child(child))
             .when_some(self.on_click, |div: Stateful<Div>, on_click| {
                 div.on_click(

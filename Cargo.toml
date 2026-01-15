@@ -5,7 +5,8 @@ edition = "2024"
 
 [workspace]
 members = [
-    "crates/reqwest_client"
+    "crates/reqwest_client",
+    "crates/app_assets",
 ]
 
 [workspace.lints]
@@ -29,6 +30,7 @@ gpui-component-assets = { git = "https://github.com/longbridge/gpui-component.gi
 reqwest.workspace = true
 
 reqwest_client = { path = "crates/reqwest_client" }
+app_assets = { path = "crates/app_assets" }
 serde_json.workspace = true
 smallvec = "1.15.1"
 image = "0.25.9"
@@ -37,4 +39,3 @@ async-channel = "2.5.0"
 ringbuf = "0.4.9"
 cpal = "0.17.1"
 rust-i18n = "3.1.5"
-rust-embed = "8.11.0"

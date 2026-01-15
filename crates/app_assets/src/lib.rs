@@ -1,6 +1,8 @@
-use anyhow::{Ok, anyhow};
+use anyhow::anyhow;
 use gpui::AssetSource;
 use rust_embed::RustEmbed;
+
+pub mod icons;
 
 #[derive(RustEmbed)]
 #[folder = "./assets"]

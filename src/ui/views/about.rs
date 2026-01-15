@@ -1,5 +1,6 @@
+use app_assets::icons;
 use gpui::{ParentElement, Render, Styled, div, svg};
-use gpui_component::StyledExt;
+use gpui_component::{Icon, StyledExt};
 
 pub struct AboutView;
 
@@ -17,9 +18,10 @@ impl Render for AboutView {
             .font_medium()
             .child(
                 svg()
-                    .path("icons/play_arrow.svg")
-                    .size_10()
+                    .path(icons::rounded::PAUSE_FILLED)
+                    .size_16()
                     .text_color(gpui::white()),
             )
+            .child(Icon::new(Icon::empty()).path(icons::rounded::PAUSE_FILLED))
     }
 }
