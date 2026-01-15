@@ -131,7 +131,6 @@ impl Render for MyApp {
                     .on_action(cx.listener(on_foward))
                     .on_action(cx.listener(on_set_start))
                     .on_action(cx.listener(on_set_end))
-                    .focus(|s| s.debug_blue())
                     .v_flex()
                     .size_full()
                     .min_h_0()
@@ -229,13 +228,15 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 })),
                         )
                         .child(
-                            RoundButton::new("a")
-                                .label("A")
+                            RoundButton::new("start")
+                                .icon_path(icons::rounded::SELECTED_START_FILLED)
+                                .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetStart), cx)),
                         )
                         .child(
-                            RoundButton::new("b")
-                                .label("B")
+                            RoundButton::new("end")
+                                .icon_path(icons::rounded::SELECTED_END_FILLED)
+                                .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
                         ),
                 )
