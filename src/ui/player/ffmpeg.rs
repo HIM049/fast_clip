@@ -11,6 +11,7 @@ use ffmpeg_next::{
     ChannelLayout, Codec, Packet, Rational,
     decoder::{self},
     format::{self, context, sample::Type},
+    frame::{Audio, Video},
     software::{
         resampling,
         scaling::{self},
@@ -280,8 +281,10 @@ impl VideoDecoder {
             let mut seeking_to: Option<f32> = None;
             let mut seek_state = (false, false);
             let mut is_read_finished = false;
+
             loop {
                 {
+                    let mut need_flash = false;
                     // handle decoder event
                     let mut event = event.lock().unwrap();
                     match *event {
@@ -298,24 +301,24 @@ impl VideoDecoder {
                                 continue;
                             }
 
-                            v_decoder.flush();
-                            a_decoder.flush();
                             seeking_to = Some(t);
                             seek_state = (false, false);
+                            need_flash = true;
+                        }
+                    }
+                    if need_flash {
+                        v_decoder.flush();
+                        a_decoder.flush();
+                        video_pkt_queue.clear();
+                        audio_pkt_queue.clear();
 
-                            // create new resampler
-                            resampler = Self::create_resampler(
-                                a_decoder.channel_layout(),
-                                &resampler_params,
-                            )
-                            .unwrap();
+                        // create new resampler
+                        resampler =
+                            Self::create_resampler(a_decoder.channel_layout(), &resampler_params)
+                                .unwrap();
 
-                            video_pkt_queue.clear();
-                            audio_pkt_queue.clear();
-
-                            unsafe {
-                                a_producer.set_write_index(a_producer.read_index());
-                            }
+                        unsafe {
+                            a_producer.set_write_index(a_producer.read_index());
                         }
                     }
                     *event = DecoderEvent::None;
@@ -336,98 +339,68 @@ impl VideoDecoder {
                     }
                 }
 
-                // push if some video packet
-                if let Some(p) = video_pkt_queue.pop_front() {
-                    if v_decoder.send_packet(&p).is_err() {
-                        video_pkt_queue.push_front(p);
-                    }
-                }
-
-                // push if some audio packet
-                if let Some(p) = audio_pkt_queue.pop_front() {
-                    if a_decoder.send_packet(&p).is_err() {
-                        audio_pkt_queue.push_front(p);
-                    }
-                }
-
                 // drop extra frames when seek
                 if let Some(to) = seeking_to {
                     let target = (to * time_base.denominator() as f32) as i64;
                     let audio_target = (to * audio_time_base.denominator() as f32) as i64;
-                    if !seek_state.0 && v_decoder.receive_frame(&mut decoded_frame).is_ok() {
-                        if decoded_frame.pts().unwrap_or(0) < target {
-                            continue;
-                        } else {
-                            scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
-                            next_video_frame = scale_frame(
-                                &mut scaled_frame,
-                                w,
-                                h,
-                                original_size,
-                                decoded_frame.pts().unwrap_or(0),
-                            );
+                    if !seek_state.0 {
+                        let result = handle_video(
+                            &mut video_pkt_queue,
+                            &mut v_decoder,
+                            &mut decoded_frame,
+                            &mut scaler,
+                            &mut scaled_frame,
+                            w,
+                            h,
+                            original_size,
+                            Some(target),
+                        );
+                        if result.is_some() {
+                            next_video_frame = result;
                             seek_state.0 = true;
                         }
                     }
-                    if !seek_state.1 && a_decoder.receive_frame(&mut decoded_audio).is_ok() {
-                        if decoded_audio.pts().unwrap_or(0) < audio_target {
-                            continue;
-                        } else {
-                            resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
-                            if resampled_audio.samples() > 0 {
-                                let raw_samples: &[f32] = unsafe {
-                                    std::slice::from_raw_parts(
-                                        resampled_audio.data(0).as_ptr() as *const f32,
-                                        resampled_audio.samples()
-                                            * resampled_audio.channels() as usize,
-                                    )
-                                };
-                                next_audio_sample = Some(raw_samples.to_vec());
-                                seek_state.1 = true;
-                            }
+                    if !seek_state.1 {
+                        let result = handle_audio(
+                            &mut audio_pkt_queue,
+                            &mut a_decoder,
+                            &mut resampler,
+                            &mut decoded_audio,
+                            &mut resampled_audio,
+                            Some(audio_target),
+                        );
+                        if result.is_some() {
+                            next_audio_sample = result;
+                            seek_state.1 = true;
                         }
                     }
                     if seek_state == (true, true) {
                         seeking_to = None;
                     }
                 } else {
-                    // try receive decoded frame and push
-                    if next_video_frame.is_none()
-                        && v_decoder.receive_frame(&mut decoded_frame).is_ok()
-                    {
-                        // convert frame
-                        scaler.run(&decoded_frame, &mut scaled_frame).unwrap();
-                        next_video_frame = scale_frame(
+                    if next_video_frame.is_none() {
+                        next_video_frame = handle_video(
+                            &mut video_pkt_queue,
+                            &mut v_decoder,
+                            &mut decoded_frame,
+                            &mut scaler,
                             &mut scaled_frame,
                             w,
                             h,
                             original_size,
-                            decoded_frame.pts().unwrap_or(0),
+                            None,
                         );
                     }
 
-                    // if none ready audio sample
                     if next_audio_sample.is_none() {
-                        if a_decoder.receive_frame(&mut decoded_audio).is_ok() {
-                            // try receive audio frame and resample
-                            resampler.run(&decoded_audio, &mut resampled_audio).unwrap();
-                        } else if audio_pkt_queue.len() == 0 {
-                            // queue are clear, release resampler
-                            if let Ok(r) = resampler.flush(&mut resampled_audio) {
-                                if r.is_none() {
-                                    break;
-                                }
-                            }
-                        }
-                        if resampled_audio.samples() > 0 {
-                            let raw_samples: &[f32] = unsafe {
-                                std::slice::from_raw_parts(
-                                    resampled_audio.data(0).as_ptr() as *const f32,
-                                    resampled_audio.samples() * resampled_audio.channels() as usize,
-                                )
-                            };
-                            next_audio_sample = Some(raw_samples.to_vec());
-                        }
+                        next_audio_sample = handle_audio(
+                            &mut audio_pkt_queue,
+                            &mut a_decoder,
+                            &mut resampler,
+                            &mut decoded_audio,
+                            &mut resampled_audio,
+                            None,
+                        );
                     }
                 }
 
@@ -441,14 +414,14 @@ impl VideoDecoder {
                     break;
                 }
 
-                // push video frame
+                // push frame to ringbuf
                 if let Some(f) = next_video_frame.take() {
                     if let Err(f) = v_producer.try_push(f) {
                         next_video_frame = Some(f);
                     }
                 }
 
-                // push audio sample
+                // push audio sample to ringbuf
                 if let Some(s) = next_audio_sample.take() {
                     let written = a_producer.push_slice(&s);
                     if written < s.len() {
@@ -458,6 +431,85 @@ impl VideoDecoder {
             }
         });
     }
+}
+
+fn handle_video(
+    queue: &mut VecDeque<Packet>,
+    decoder: &mut decoder::Video,
+    decoded_frame: &mut Video,
+    scaler: &mut ffmpeg_next::software::scaling::Context,
+    scaled_frame: &mut ffmpeg_next::frame::Video,
+    w: u32,
+    h: u32,
+    original_size: (u32, u32),
+    seek_to: Option<i64>,
+) -> Option<FrameImage> {
+    if let Some(p) = queue.pop_front() {
+        if decoder.send_packet(&p).is_err() {
+            queue.push_front(p);
+        }
+
+        if decoder.receive_frame(decoded_frame).is_ok() {
+            scaler.run(decoded_frame, scaled_frame).unwrap();
+
+            if let Some(to) = seek_to {
+                if decoded_frame.pts().unwrap_or(0) < to {
+                    return None;
+                }
+            }
+
+            return scale_frame(
+                scaled_frame,
+                w,
+                h,
+                original_size,
+                decoded_frame.pts().unwrap_or(0),
+            );
+        }
+    }
+    None
+}
+
+fn handle_audio(
+    queue: &mut VecDeque<Packet>,
+    decoder: &mut decoder::Audio,
+    resampler: &mut resampling::context::Context,
+    decoded_audio: &mut Audio,
+    resampled_audio: &mut Audio,
+    seek_to: Option<i64>,
+) -> Option<Vec<f32>> {
+    // push if some audio packet
+    if let Some(p) = queue.pop_front() {
+        if decoder.send_packet(&p).is_err() {
+            queue.push_front(p);
+        }
+    }
+    if decoder.receive_frame(decoded_audio).is_ok() {
+        if let Some(to) = seek_to {
+            if decoded_audio.pts().unwrap_or(0) < to {
+                return None;
+            }
+        }
+        // try receive audio frame and resample
+        resampler.run(&decoded_audio, resampled_audio).unwrap();
+    } else if queue.len() == 0 {
+        // queue are clear, release resampler
+        if let Ok(r) = resampler.flush(resampled_audio) {
+            if r.is_none() {
+                // break;
+            }
+        }
+    }
+    if resampled_audio.samples() > 0 {
+        let raw_samples: &[f32] = unsafe {
+            std::slice::from_raw_parts(
+                resampled_audio.data(0).as_ptr() as *const f32,
+                resampled_audio.samples() * resampled_audio.channels() as usize,
+            )
+        };
+        return Some(raw_samples.to_vec());
+    }
+    None
 }
 
 pub fn scale_frame(
