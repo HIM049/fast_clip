@@ -196,29 +196,29 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SwitchPlay), cx)),
                         )
                         .child(
-                            RoundButton::new("back")
+                            RoundButton::new("go-back")
                                 .icon_path(icons::rounded::REPLAY_10_FILLED)
                                 .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Back), cx)),
                         )
                         .child(
-                            RoundButton::new("forward")
+                            RoundButton::new("go-forward")
                                 .icon_path(icons::rounded::FORWARD_10_FILLED)
                                 .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Forward), cx)),
                         )
                         .child(
-                            RoundButton::new("last")
+                            RoundButton::new("last-key")
                                 .icon_path(icons::rounded::FIRST_PAGE_FILLED)
                                 .on_click(|_, _, _| {}),
                         )
                         .child(
-                            RoundButton::new("next")
+                            RoundButton::new("next-key")
                                 .icon_path(icons::rounded::LAST_PAGE_FILLED)
                                 .on_click(|_, _, _| {}),
                         )
                         .child(
-                            RoundButton::new("beginning")
+                            RoundButton::new("to-beginning")
                                 .icon_path(icons::rounded::KEYBOARD_TAB_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(start) = this.selection_range.0 {
@@ -228,7 +228,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 })),
                         )
                         .child(
-                            RoundButton::new("end")
+                            RoundButton::new("to-end")
                                 .icon_path(icons::rounded::KEYBOARD_TAB_R_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(end) = this.selection_range.1 {
@@ -238,13 +238,13 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 })),
                         )
                         .child(
-                            RoundButton::new("start")
+                            RoundButton::new("set-start")
                                 .icon_path(icons::rounded::SELECTED_START_FILLED)
                                 .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetStart), cx)),
                         )
                         .child(
-                            RoundButton::new("end")
+                            RoundButton::new("set-end")
                                 .icon_path(icons::rounded::SELECTED_END_FILLED)
                                 .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
@@ -287,7 +287,6 @@ fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyA
 }
 
 fn on_set_start(this: &mut MyApp, _: &SetStart, _: &mut Window, cx: &mut Context<MyApp>) {
-    println!("set start");
     if this.player.get_state() != PlayState::Stopped {
         this.set_range(cx, (Some(this.play_percent()), None));
     }
