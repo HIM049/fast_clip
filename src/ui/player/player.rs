@@ -55,6 +55,7 @@ pub struct Player {
     recent_pts: f32,
     is_time_set: bool,
     is_seeking: bool,
+    is_waiting: bool,
 
     sample_count: Arc<AtomicUsize>,
     play_signal: Arc<AtomicBool>,
@@ -91,6 +92,7 @@ impl Player {
             recent_pts: 0.0,
             is_time_set: false,
             is_seeking: false,
+            is_waiting: false,
 
             sample_count,
             play_signal,
@@ -163,6 +165,16 @@ impl Player {
             decoder.set_event(DecoderEvent::Stop);
         }
         // TODO: drop decoder
+    }
+
+    pub fn next_key(&mut self) {
+        self.is_waiting = true;
+        self.pause_timer();
+        let ct = self.current_playtime();
+
+        if let Some(d) = self.decoder.as_mut() {
+            d.set_event(DecoderEvent::NextKey(ct));
+        }
     }
 
     pub fn set_playtime<F>(&mut self, update_fn: F)
@@ -239,8 +251,14 @@ impl Player {
             return FrameAction::Wait;
         };
         self.recent_pts = frame_time;
-        let play_time = self.current_playtime();
 
+        if self.is_waiting {
+            self.is_waiting = false;
+            self.played_time = Some(frame_time);
+            self.audio_player.play().unwrap();
+        }
+
+        let play_time = self.current_playtime();
         if (play_time - frame_time).abs() <= 0.3 {
             if self.is_seeking {
                 self.play_signal.store(false, Ordering::Release);
@@ -284,9 +302,8 @@ impl Player {
     }
 
     pub fn view(&mut self, w: &mut Window) -> Viewer {
-        self.played_sample_sec();
         // whether need to play next frames when need
-        if self.state == PlayState::Playing {
+        if self.state == PlayState::Playing || self.is_seeking {
             let next_frame: Option<FrameImage>;
             // prepare next frame from buf or decoder
             if let Some(fb) = self.frame_buf.take() {

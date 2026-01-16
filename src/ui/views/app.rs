@@ -110,7 +110,7 @@ impl MyApp {
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.player.get_state() == PlayState::Playing {
+        if self.player.get_state() != PlayState::Stopped {
             cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
@@ -210,12 +210,18 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .child(
                             RoundButton::new("last-key")
                                 .icon_path(icons::rounded::FIRST_PAGE_FILLED)
-                                .on_click(|_, _, _| {}),
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.player.next_key();
+                                    cx.notify();
+                                })),
                         )
                         .child(
                             RoundButton::new("next-key")
                                 .icon_path(icons::rounded::LAST_PAGE_FILLED)
-                                .on_click(|_, _, _| {}),
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.player.next_key();
+                                    cx.notify();
+                                })),
                         )
                         .child(
                             RoundButton::new("to-beginning")

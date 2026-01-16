@@ -37,6 +37,8 @@ pub enum DecoderEvent {
     Stop,
     Pause,
     Seek(f32),
+    LastKey(f32),
+    NextKey(f32),
 }
 
 #[derive(Debug)]
@@ -282,6 +284,8 @@ impl VideoDecoder {
             let mut seek_state = (false, false);
             let mut is_read_finished = false;
 
+            let mut last_video_pts = 0;
+
             loop {
                 {
                     let mut need_flash = false;
@@ -303,6 +307,22 @@ impl VideoDecoder {
 
                             seeking_to = Some(t);
                             seek_state = (false, false);
+                            need_flash = true;
+                        }
+                        DecoderEvent::LastKey(t) => {
+                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f32 * t) as i64;
+                            if let Err(e) = input.seek(ts, ..ts) {
+                                println!("DEBUG: failed when seek: {}", e);
+                                continue;
+                            }
+                            need_flash = true;
+                        }
+                        DecoderEvent::NextKey(t) => {
+                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f32 * t) as i64;
+                            if let Err(e) = input.seek(ts, ts..) {
+                                println!("DEBUG: failed when seek: {}", e);
+                                continue;
+                            }
                             need_flash = true;
                         }
                     }
@@ -391,7 +411,6 @@ impl VideoDecoder {
                             None,
                         );
                     }
-
                     if next_audio_sample.is_none() {
                         next_audio_sample = handle_audio(
                             &mut audio_pkt_queue,
@@ -420,7 +439,6 @@ impl VideoDecoder {
                         next_video_frame = Some(f);
                     }
                 }
-
                 // push audio sample to ringbuf
                 if let Some(s) = next_audio_sample.take() {
                     let written = a_producer.push_slice(&s);
