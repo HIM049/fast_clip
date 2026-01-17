@@ -36,9 +36,9 @@ pub enum DecoderEvent {
     None,
     Stop,
     Pause,
-    Seek(f32),
-    LastKey(f32),
-    NextKey(f32),
+    Seek(f64),
+    LastKey(f64),
+    NextKey(f64),
 }
 
 #[derive(Debug)]
@@ -280,7 +280,7 @@ impl VideoDecoder {
             let mut decoded_audio = ffmpeg_next::frame::Audio::empty();
             let mut resampled_audio = ffmpeg_next::frame::Audio::empty();
 
-            let mut seeking_to: Option<f32> = None;
+            let mut seeking_to: Option<f64> = None;
             let mut seek_state = (false, false);
             let mut is_read_finished = false;
 
@@ -299,7 +299,7 @@ impl VideoDecoder {
                             continue;
                         }
                         DecoderEvent::Seek(t) => {
-                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f32 * t) as i64;
+                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
                             if let Err(e) = input.seek(ts, ..ts) {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
@@ -310,7 +310,7 @@ impl VideoDecoder {
                             need_flash = true;
                         }
                         DecoderEvent::LastKey(t) => {
-                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f32 * t) as i64;
+                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
                             if let Err(e) = input.seek(ts, ..ts) {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
@@ -318,7 +318,7 @@ impl VideoDecoder {
                             need_flash = true;
                         }
                         DecoderEvent::NextKey(t) => {
-                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f32 * t) as i64;
+                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
                             if let Err(e) = input.seek(ts, ts..) {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
@@ -361,8 +361,8 @@ impl VideoDecoder {
 
                 // drop extra frames when seek
                 if let Some(to) = seeking_to {
-                    let target = (to * time_base.denominator() as f32) as i64;
-                    let audio_target = (to * audio_time_base.denominator() as f32) as i64;
+                    let target = (to * time_base.denominator() as f64) as i64;
+                    let audio_target = (to * audio_time_base.denominator() as f64) as i64;
                     if !seek_state.0 {
                         let result = handle_video(
                             &mut video_pkt_queue,

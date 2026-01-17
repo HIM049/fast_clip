@@ -27,6 +27,6 @@ pub struct FrameAudio {
 pub enum FrameAction {
     Wait,
     Render,
-    ReSeek(f32),
+    ReSeek(f64),
     Drop,
 }

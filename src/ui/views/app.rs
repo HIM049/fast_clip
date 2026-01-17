@@ -85,8 +85,8 @@ impl MyApp {
         if self.selection_range.0.is_some() && self.selection_range.1.is_some() {
             if let Some(dur) = self.player.duration_sec() {
                 return Some((
-                    self.selection_range.0.unwrap() * dur,
-                    self.selection_range.1.unwrap() * dur,
+                    (self.selection_range.0.unwrap() as f64 * dur) as f32,
+                    (self.selection_range.1.unwrap() as f64 * dur) as f32,
                 ));
             }
         }
@@ -110,7 +110,7 @@ impl MyApp {
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.player.get_state() != PlayState::Stopped {
+        if self.player.get_state() == PlayState::Playing {
             cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
@@ -168,7 +168,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
             Timeline::new("process", this.play_percent(), this.selection_range).on_click(
                 move |pct, cx| {
                     weak.update(cx, |this, _| {
-                        this.player.set_playtime(|_, dur| dur * pct);
+                        this.player.set_playtime(|_, dur| dur * pct as f64);
                     })
                     .unwrap();
                 },
@@ -228,7 +228,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .icon_path(icons::rounded::KEYBOARD_TAB_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(start) = this.selection_range.0 {
-                                        this.player.set_playtime(|_, dur| dur * start);
+                                        this.player.set_playtime(|_, dur| dur * start as f64);
                                     }
                                     cx.notify();
                                 })),
@@ -238,7 +238,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .icon_path(icons::rounded::KEYBOARD_TAB_R_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(end) = this.selection_range.1 {
-                                        this.player.set_playtime(|_, dur| dur * end);
+                                        this.player.set_playtime(|_, dur| dur * end as f64);
                                     }
                                     cx.notify();
                                 })),
@@ -261,7 +261,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                     |div| {
                         div.child(Chip::new().label(format!(
                             "{} / {}",
-                            format_sec(this.player.current_playtime()),
+                            format_sec(this.player.current_playtime() as f64),
                             format_sec(this.player.duration_sec().unwrap_or(0.))
                         )))
                     },
@@ -305,7 +305,7 @@ fn on_set_end(this: &mut MyApp, _: &SetEnd, _: &mut Window, cx: &mut Context<MyA
     cx.notify();
 }
 
-fn format_sec(sec: f32) -> String {
+fn format_sec(sec: f64) -> String {
     format!(
         "{:02}:{:02}",
         sec.round() as i32 / 60,

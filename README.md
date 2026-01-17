@@ -26,3 +26,4 @@ a tiny video edit tool for make clips fast and eazy.
   - [ ] keyboard binding
   - [ ] volume adjust
   - [ ] buttons: [next/front key frame, to A/B, +-1min, ...]
+  - [ ] initiative seek？
