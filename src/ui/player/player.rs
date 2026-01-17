@@ -1,11 +1,10 @@
 use std::{
+    f64,
     path::PathBuf,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    thread,
-    time::{Duration, Instant},
 };
 
 use gpui::{Context, Entity, RenderImage, Window};
@@ -55,7 +54,6 @@ pub struct Player {
     audio_player: AudioPlayer,
 
     recent_pts: f64,
-    is_time_set: bool,
     is_seeking: bool,
     is_waiting: bool,
 
@@ -93,7 +91,6 @@ impl Player {
             audio_player,
 
             recent_pts: 0.0,
-            is_time_set: false,
             is_seeking: false,
             is_waiting: false,
 
@@ -172,9 +169,18 @@ impl Player {
         // TODO: drop decoder
     }
 
+    pub fn last_key(&mut self) {
+        self.is_waiting = true;
+        self.timer.stop();
+        let ct = self.timer.current_time_sec();
+
+        if let Some(d) = self.decoder.as_mut() {
+            d.set_event(DecoderEvent::LastKey(ct));
+        }
+    }
+
     pub fn next_key(&mut self) {
         self.is_waiting = true;
-        // self.pause_timer();
         self.timer.stop();
         let ct = self.timer.current_time_sec();
 
@@ -183,16 +189,34 @@ impl Player {
         }
     }
 
-    pub fn set_playtime<F>(&mut self, update_fn: F)
+    // pub fn set_playtime<F>(&mut self, update_fn: F)
+    // where
+    //     F: Fn(f64, f64) -> f64,
+    // {
+    //     self.timer.stop();
+    //     self.is_time_set = true;
+    //     let now = self.timer.current_time_sec();
+    //     let dur_sec = self.duration_sec().unwrap_or(0.);
+    //     self.timer
+    //         .set_time_sec(update_fn(now, dur_sec).clamp(0.0, dur_sec));
+    // }
+
+    pub fn seek_player<F>(&mut self, update_fn: F)
     where
         F: Fn(f64, f64) -> f64,
     {
-        self.timer.stop();
-        self.is_time_set = true;
         let now = self.timer.current_time_sec();
         let dur_sec = self.duration_sec().unwrap_or(0.);
-        self.timer
-            .set_time_sec(update_fn(now, dur_sec).clamp(0.0, dur_sec));
+        self.seek_to(update_fn(now, dur_sec).clamp(0.0, dur_sec));
+    }
+
+    pub fn seek_to(&mut self, time: f64) {
+        if let Some(decoder) = self.decoder.as_mut() {
+            decoder.set_event(DecoderEvent::Seek(time));
+        };
+        self.is_seeking = true;
+        self.frame_buf = None;
+        self.consumer.clear();
     }
 
     pub fn get_state(&self) -> PlayState {
@@ -222,7 +246,7 @@ impl Player {
             return None;
         };
         let timebase = decoder.get_timebase();
-        Some((duration as f64 / timebase.denominator() as f64))
+        Some(duration as f64 / timebase.denominator() as f64)
     }
 
     // calc played samples time
@@ -268,28 +292,28 @@ impl Player {
                 FrameAction::Wait
             }
         } else {
-            if self.is_seeking && !self.is_time_set {
-                return FrameAction::Drop;
-            } else {
-                self.is_seeking = true;
-                self.is_time_set = false;
-                // self.pause_timer();
-                self.timer.stop();
-                FrameAction::ReSeek(play_time)
-            }
+            // if self.is_seeking && !self.is_time_set {
+            //     return FrameAction::Drop;
+            // } else {
+            //     self.is_seeking = true;
+            //     self.is_time_set = false;
+            //     // self.pause_timer();
+            //     self.timer.stop();
+            //     FrameAction::ReSeek(play_time)
+            // }
+            return FrameAction::Drop;
         }
     }
 
     pub fn dbg_msg(&self) -> String {
         format!(
             "
-            PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, UNHANDLE_SET {}, DIFF {:.2}
+            PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, DIFF {:.2}
             played_sample_sec {:.2}, played_time {:?}
             ",
             self.current_playtime(),
             self.recent_pts,
             self.is_seeking,
-            self.is_time_set,
             self.current_playtime() - self.recent_pts,
             self.played_sample_sec(),
             self.timer.current_time_sec()
@@ -299,6 +323,12 @@ impl Player {
     pub fn view(&mut self, w: &mut Window) -> Viewer {
         // whether need to play next frames when need
         if self.state == PlayState::Playing {
+            if self.timer.current_time_sec() >= self.duration_sec().unwrap_or(0.0)
+                && !self.is_seeking
+            {
+                self.pause_play();
+                self.seek_to(0.0);
+            }
             let next_frame: Option<FrameImage>;
             // prepare next frame from buf or decoder
             if let Some(fb) = self.frame_buf.take() {
@@ -310,40 +340,34 @@ impl Player {
                 next_frame = None;
             }
 
-            // if self.is_waiting {
-            //     self.is_waiting = false;
-            //     self.played_time = Some(frame_time);
-            //     self.audio_player.play().unwrap();
-            // }
-            if self.is_seeking {
-                self.play_signal.store(false, Ordering::Release);
-                self.audio_player.play().unwrap();
-                while !self.play_signal.load(Ordering::Acquire) {
-                    thread::sleep(Duration::from_millis(1));
-                }
-                self.is_seeking = false;
-            }
-
-            // update if had next_frame
             if let Some(next_frame) = next_frame {
-                match self.compare_time(next_frame.pts) {
-                    FrameAction::Wait => {
-                        self.frame_buf = Some(next_frame);
-                    }
-                    FrameAction::Render => {
-                        w.drop_image(self.frame.clone()).unwrap();
-                        self.frame = next_frame.image;
-                    }
-                    FrameAction::ReSeek(t) => {
-                        if let Some(decoder) = self.decoder.as_mut() {
-                            decoder.set_event(DecoderEvent::Seek(t));
-                        };
+                if self.is_seeking {
+                    // self.play_signal.store(false, Ordering::Release);
+                    // self.audio_player.play().unwrap();
+                    // while !self.play_signal.load(Ordering::Acquire) {
+                    //     thread::sleep(Duration::from_millis(1));
+                    // }
+
+                    if next_frame.reseeked {
+                        self.is_seeking = false;
+                        self.timer
+                            .set_time_sec(self.frame_time(next_frame.pts).unwrap());
+                        self.timer.start();
+                    } else {
                         w.drop_image(next_frame.image).unwrap();
-                        self.consumer.clear();
-                        self.frame_buf = None;
                     }
-                    FrameAction::Drop => {
-                        w.drop_image(next_frame.image).unwrap();
+                } else {
+                    match self.compare_time(next_frame.pts) {
+                        FrameAction::Wait => {
+                            self.frame_buf = Some(next_frame);
+                        }
+                        FrameAction::Render => {
+                            w.drop_image(self.frame.clone()).unwrap();
+                            self.frame = next_frame.image;
+                        }
+                        FrameAction::Drop => {
+                            w.drop_image(next_frame.image).unwrap();
+                        }
                     }
                 }
             }

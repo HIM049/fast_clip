@@ -284,8 +284,6 @@ impl VideoDecoder {
             let mut seek_state = (false, false);
             let mut is_read_finished = false;
 
-            let mut last_video_pts = 0;
-
             loop {
                 {
                     let mut need_flash = false;
@@ -305,6 +303,7 @@ impl VideoDecoder {
                                 continue;
                             }
 
+                            is_read_finished = false;
                             seeking_to = Some(t);
                             seek_state = (false, false);
                             need_flash = true;
@@ -424,13 +423,10 @@ impl VideoDecoder {
                 }
 
                 // if ringbuf is full
-                if v_producer.is_full() && a_producer.is_full() {
-                    thread::sleep(Duration::from_millis(10));
-                } else if is_read_finished
-                    && next_video_frame.is_none()
-                    && next_audio_sample.is_none()
+                if v_producer.is_full() && a_producer.is_full()
+                    || is_read_finished && next_video_frame.is_none() && next_audio_sample.is_none()
                 {
-                    break;
+                    thread::sleep(Duration::from_millis(10));
                 }
 
                 // push frame to ringbuf
@@ -462,6 +458,7 @@ fn handle_video(
     original_size: (u32, u32),
     seek_to: Option<i64>,
 ) -> Option<FrameImage> {
+    let mut reseeked = false;
     if let Some(p) = queue.pop_front() {
         if decoder.send_packet(&p).is_err() {
             queue.push_front(p);
@@ -473,6 +470,8 @@ fn handle_video(
             if let Some(to) = seek_to {
                 if decoded_frame.pts().unwrap_or(0) < to {
                     return None;
+                } else {
+                    reseeked = true;
                 }
             }
 
@@ -482,6 +481,7 @@ fn handle_video(
                 h,
                 original_size,
                 decoded_frame.pts().unwrap_or(0),
+                reseeked,
             );
         }
     }
@@ -536,6 +536,7 @@ pub fn scale_frame(
     height: u32,
     original_size: (u32, u32),
     pts: i64,
+    reseeked: bool,
 ) -> Option<FrameImage> {
     let data = scaled_frame.data(0);
     let stride = scaled_frame.stride(0);
@@ -550,6 +551,7 @@ pub fn scale_frame(
     Some(FrameImage {
         image: generate_image_fallback(original_size, buffer),
         pts,
+        reseeked,
     })
 }
 

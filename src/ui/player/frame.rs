@@ -7,6 +7,7 @@ use crate::ui::player::utils::generate_image_fallback;
 pub struct FrameImage {
     pub image: Arc<RenderImage>,
     pub pts: i64,
+    pub reseeked: bool,
 }
 
 impl FrameImage {
@@ -14,6 +15,7 @@ impl FrameImage {
         Self {
             image: generate_image_fallback((1, 1), vec![]),
             pts: 0,
+            reseeked: false,
         }
     }
 }
@@ -27,6 +29,6 @@ pub struct FrameAudio {
 pub enum FrameAction {
     Wait,
     Render,
-    ReSeek(f64),
+    // ReSeek(f64),
     Drop,
 }

@@ -168,7 +168,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
             Timeline::new("process", this.play_percent(), this.selection_range).on_click(
                 move |pct, cx| {
                     weak.update(cx, |this, _| {
-                        this.player.set_playtime(|_, dur| dur * pct as f64);
+                        this.player.seek_player(|_, dur| dur * pct as f64);
                     })
                     .unwrap();
                 },
@@ -211,7 +211,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                             RoundButton::new("last-key")
                                 .icon_path(icons::rounded::FIRST_PAGE_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
-                                    this.player.next_key();
+                                    this.player.last_key();
                                     cx.notify();
                                 })),
                         )
@@ -228,7 +228,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .icon_path(icons::rounded::KEYBOARD_TAB_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(start) = this.selection_range.0 {
-                                        this.player.set_playtime(|_, dur| dur * start as f64);
+                                        this.player.seek_player(|_, dur| dur * start as f64);
                                     }
                                     cx.notify();
                                 })),
@@ -238,7 +238,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .icon_path(icons::rounded::KEYBOARD_TAB_R_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(end) = this.selection_range.1 {
-                                        this.player.set_playtime(|_, dur| dur * end as f64);
+                                        this.player.seek_player(|_, dur| dur * end as f64);
                                     }
                                     cx.notify();
                                 })),
@@ -284,11 +284,11 @@ fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<
     cx.notify();
 }
 fn on_back(this: &mut MyApp, _: &Back, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.set_playtime(|now, _| now - 10.);
+    this.player.seek_player(|now, _| now - 10.);
     cx.notify();
 }
 fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.set_playtime(|now, _| now + 10.);
+    this.player.seek_player(|now, _| now + 10.);
     cx.notify();
 }
 
