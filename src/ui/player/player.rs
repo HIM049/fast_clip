@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     thread,
     time::Duration,
@@ -59,7 +59,6 @@ pub struct Player {
     is_seeking: bool,
     is_waiting: bool,
 
-    sample_count: Arc<AtomicUsize>,
     play_signal: Arc<AtomicBool>,
 }
 
@@ -72,9 +71,8 @@ impl Player {
         let rb = ringbuf::SharedRb::<Heap<f32>>::new(audio_player.sample_rate() as usize * 1);
         let (a_producer, a_consumer) = rb.split();
 
-        let sample_count = Arc::new(AtomicUsize::new(0));
         let play_signal = Arc::new(AtomicBool::new(false));
-        audio_player.spawn(a_consumer, sample_count.clone(), play_signal.clone());
+        audio_player.spawn(a_consumer, play_signal.clone());
 
         Self {
             init: false,
@@ -96,7 +94,6 @@ impl Player {
             is_seeking: false,
             is_waiting: false,
 
-            sample_count,
             play_signal,
         }
     }
@@ -259,11 +256,6 @@ impl Player {
         Some(duration as f64 / timebase.denominator() as f64)
     }
 
-    // calc played samples time
-    fn played_sample_sec(&self) -> f32 {
-        self.sample_count.load(Ordering::Relaxed) as f32 / self.audio_player.sample_rate() as f32
-    }
-
     // calc current time
     pub fn current_playtime(&self) -> f64 {
         self.timer.current_time_sec()
@@ -336,15 +328,11 @@ impl Player {
 
     pub fn dbg_msg(&self) -> String {
         format!(
-            "
-            PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, DIFF {:.2}
-            played_sample_sec {:.2}, played_time {:?}
-            ",
+            "PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, DIFF {:.2}, played_time {:?}",
             self.current_playtime(),
             self.recent_pts,
             self.is_seeking,
             self.current_playtime() - self.recent_pts,
-            self.played_sample_sec(),
             self.timer.current_time_sec()
         )
     }

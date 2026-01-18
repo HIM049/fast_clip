@@ -1,6 +1,6 @@
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, Ordering},
 };
 
 use anyhow::anyhow;
@@ -61,14 +61,7 @@ impl AudioPlayer {
         self.sample_rate
     }
 
-    pub fn spawn(
-        &mut self,
-        mut consumer: HeapCons<f32>,
-        count: Arc<AtomicUsize>,
-        signal: Arc<AtomicBool>,
-    ) {
-        let channels = self.config.channels;
-
+    pub fn spawn(&mut self, mut consumer: HeapCons<f32>, signal: Arc<AtomicBool>) {
         let stream = self
             .device
             .build_output_stream(
@@ -82,11 +75,6 @@ impl AudioPlayer {
                         *sample = 0.0;
                     }
                     signal.store(true, Ordering::Release);
-
-                    count.store(
-                        count.load(Ordering::Relaxed) + r_lenth / channels as usize,
-                        Ordering::Relaxed,
-                    );
                 },
                 move |err| {
                     println!("error when playing: {}", err);
