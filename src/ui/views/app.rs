@@ -39,7 +39,7 @@ impl MyApp {
         size_entity: Entity<PlayerSize>,
         param_entity: Entity<OutputParams>,
     ) -> Self {
-        let title_bar = cx.new(|cx| AppTitleBar::new("EzClip", cx));
+        let title_bar = cx.new(|cx| AppTitleBar::new("FastClip", cx));
         let focus_handle = cx.focus_handle();
         Self::listen_open(&param_entity, cx);
 

@@ -9,12 +9,16 @@ use gpui_component::{
     label::Label,
 };
 
-use crate::{models::model::OutputParams, ui::output::output::output};
+use crate::{
+    models::model::OutputParams,
+    ui::{button::RoundButton, output::output::output},
+};
 
 pub struct OutputView {
     params: Entity<OutputParams>,
     input: Entity<InputState>,
     updated_path: Option<PathBuf>,
+    audio_ix: usize,
 }
 
 impl OutputView {
@@ -27,6 +31,7 @@ impl OutputView {
             params,
             input: cx.new(|cx| InputState::new(window, cx).default_value("./output.mp4")),
             updated_path: None,
+            audio_ix: 0,
         }
     }
 
@@ -48,7 +53,7 @@ impl OutputView {
             println!("DEBUG: error when output: None selected_range");
             return;
         };
-        if let Err(e) = output(path, v_ix, a_ix, range) {
+        if let Err(e) = output(path, v_ix, self.audio_ix, range) {
             println!("error when output: {}", e);
         }
     }
@@ -114,6 +119,24 @@ impl Render for OutputView {
                                         .on_click(cx.listener(Self::listen_path)),
                                 ),
                         ),
+                    )
+                    .child(
+                        div()
+                            .h_flex()
+                            .gap_5()
+                            .child(RoundButton::new("min").label("-").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.audio_ix -= 1;
+                                    cx.notify();
+                                },
+                            )))
+                            .child(format!("audio ix {}", self.audio_ix))
+                            .child(RoundButton::new("plus").label("+").on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.audio_ix += 1;
+                                    cx.notify();
+                                },
+                            ))),
                     )
                     .child(
                         div()
