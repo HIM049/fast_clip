@@ -5,6 +5,8 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
+    thread,
+    time::Duration,
 };
 
 use gpui::{Context, Entity, RenderImage, Window};
@@ -200,6 +202,13 @@ impl Player {
     //     self.timer
     //         .set_time_sec(update_fn(now, dur_sec).clamp(0.0, dur_sec));
     // }
+    fn audio_play_block(&mut self) {
+        self.play_signal.store(false, Ordering::Release);
+        self.audio_player.play().unwrap();
+        while !self.play_signal.load(Ordering::Acquire) {
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
 
     pub fn seek_player<F>(&mut self, update_fn: F)
     where
@@ -217,6 +226,7 @@ impl Player {
         self.is_seeking = true;
         self.frame_buf = None;
         self.consumer.clear();
+        self.audio_player.pause().unwrap();
     }
 
     pub fn get_state(&self) -> PlayState {
@@ -278,11 +288,30 @@ impl Player {
     }
 
     /// only for playing control
-    fn compare_time(&mut self, frame_pts: i64) -> FrameAction {
-        let Some(frame_time) = self.frame_time(frame_pts) else {
+    fn compare_time(&mut self, frame: &FrameImage) -> FrameAction {
+        let Some(frame_time) = self.frame_time(frame.pts) else {
             return FrameAction::Wait;
         };
         self.recent_pts = frame_time;
+
+        // if currnet resseking
+        if self.is_seeking {
+            // wait first reeked frame
+            if frame.reseeked {
+                // set status
+                self.is_seeking = false;
+                // reset timer
+                self.timer.set_time_sec(self.frame_time(frame.pts).unwrap());
+                // resume play if need
+                if self.state == PlayState::Playing {
+                    self.audio_play_block();
+                    self.timer.start();
+                }
+                return FrameAction::Render;
+            } else {
+                return FrameAction::Drop;
+            }
+        }
 
         let play_time = self.current_playtime();
         if (play_time - frame_time).abs() <= 0.3 {
@@ -322,7 +351,7 @@ impl Player {
 
     pub fn view(&mut self, w: &mut Window) -> Viewer {
         // whether need to play next frames when need
-        if self.state == PlayState::Playing {
+        if self.state == PlayState::Playing || self.is_seeking {
             if self.timer.current_time_sec() >= self.duration_sec().unwrap_or(0.0)
                 && !self.is_seeking
             {
@@ -341,37 +370,21 @@ impl Player {
             }
 
             if let Some(next_frame) = next_frame {
-                if self.is_seeking {
-                    // self.play_signal.store(false, Ordering::Release);
-                    // self.audio_player.play().unwrap();
-                    // while !self.play_signal.load(Ordering::Acquire) {
-                    //     thread::sleep(Duration::from_millis(1));
-                    // }
-
-                    if next_frame.reseeked {
-                        self.is_seeking = false;
-                        self.timer
-                            .set_time_sec(self.frame_time(next_frame.pts).unwrap());
-                        self.timer.start();
-                    } else {
-                        w.drop_image(next_frame.image).unwrap();
+                match self.compare_time(&next_frame) {
+                    FrameAction::Wait => {
+                        self.frame_buf = Some(next_frame);
                     }
-                } else {
-                    match self.compare_time(next_frame.pts) {
-                        FrameAction::Wait => {
-                            self.frame_buf = Some(next_frame);
-                        }
-                        FrameAction::Render => {
-                            w.drop_image(self.frame.clone()).unwrap();
-                            self.frame = next_frame.image;
-                        }
-                        FrameAction::Drop => {
-                            w.drop_image(next_frame.image).unwrap();
-                        }
+                    FrameAction::Render => {
+                        w.drop_image(self.frame.clone()).unwrap();
+                        self.frame = next_frame.image;
+                    }
+                    FrameAction::Drop => {
+                        w.drop_image(next_frame.image).unwrap();
                     }
                 }
             }
         }
+
         Viewer::new(self.frame.clone(), self.size.clone())
     }
 }

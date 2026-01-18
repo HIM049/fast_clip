@@ -112,7 +112,7 @@ impl MyApp {
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.player.get_state() == PlayState::Playing {
+        if self.player.get_state() == PlayState::Playing || true {
             cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
