@@ -53,53 +53,56 @@ impl MyApp {
         }
     }
 
+    /// handle open and play file
     pub fn open_file(&mut self, cx: &mut Context<Self>, path: &PathBuf) {
         if self.player.is_init() {
-            self.close_file();
+            self.close_file(cx);
         }
         self.player.open(cx, &path).unwrap();
         self.player.start_play(cx);
         cx.notify();
     }
 
-    pub fn new_player(&mut self) {
+    /// close file and reset player
+    pub fn close_file(&mut self, cx: &mut Context<Self>) {
+        self.selection_range = (None, None);
+        self.output_parames.update(cx, |p, _| {
+            p.selected_range = None;
+        });
         self.player = Player::new(self.size.clone(), self.output_parames.clone());
     }
 
-    pub fn close_file(&mut self) {
-        self.selection_range = (None, None);
-        self.new_player();
-    }
-
+    /// calc player percent
     fn play_percent(&self) -> f32 {
         self.player.play_percentage().unwrap_or(0.)
     }
 
-    fn set_range(&mut self, cx: &mut Context<Self>, percent_range: (Option<f32>, Option<f32>)) {
+    /// set and update range
+    fn update_range(&mut self, cx: &mut Context<Self>, percent_range: (Option<f32>, Option<f32>)) {
         if let Some(a) = percent_range.0 {
             self.selection_range.0 = Some(a);
         }
         if let Some(b) = percent_range.1 {
             self.selection_range.1 = Some(b);
         }
-
         self.output_parames.update(cx, |p, _| {
             p.selected_range = self.get_sec_range();
         });
     }
 
-    fn get_sec_range(&self) -> Option<(f32, f32)> {
-        if self.selection_range.0.is_some() && self.selection_range.1.is_some() {
-            if let Some(dur) = self.player.duration_sec() {
-                return Some((
-                    (self.selection_range.0.unwrap() as f64 * dur) as f32,
-                    (self.selection_range.1.unwrap() as f64 * dur) as f32,
-                ));
+    /// calc selected range as sec
+    fn get_sec_range(&self) -> Option<(f64, f64)> {
+        if let (Some(a), Some(b)) = (self.selection_range.0, self.selection_range.1) {
+            if a < b
+                && let Some(dur) = self.player.duration_sec()
+            {
+                return Some((a as f64 * dur, b as f64 * dur));
             }
         }
         None
     }
 
+    /// listen open file event
     fn listen_open(params: &Entity<OutputParams>, cx: &mut Context<Self>) {
         cx.observe(params, |this, e: Entity<OutputParams>, cx| {
             if let Some(path) = e.read(cx).path.clone() {
@@ -279,7 +282,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
 }
 
 fn on_close_file(this: &mut MyApp, _: &Close, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.close_file();
+    this.close_file(cx);
     cx.notify();
 }
 fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<MyApp>) {
@@ -301,13 +304,13 @@ fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyA
 
 fn on_set_start(this: &mut MyApp, _: &SetStart, _: &mut Window, cx: &mut Context<MyApp>) {
     if this.player.get_state() != PlayState::Stopped {
-        this.set_range(cx, (Some(this.play_percent()), None));
+        this.update_range(cx, (Some(this.play_percent()), None));
     }
     cx.notify();
 }
 fn on_set_end(this: &mut MyApp, _: &SetEnd, _: &mut Window, cx: &mut Context<MyApp>) {
     if this.player.get_state() != PlayState::Stopped {
-        this.set_range(cx, (None, Some(this.play_percent())));
+        this.update_range(cx, (None, Some(this.play_percent())));
     }
     cx.notify();
 }

@@ -6,7 +6,7 @@ pub fn output(
     path: &PathBuf,
     target_video_ix: usize,
     target_audio_ix: usize,
-    time_range: (f32, f32),
+    time_range: (f64, f64),
 ) -> anyhow::Result<()> {
     println!(
         "DEBUG: run output, path: {:?}, stream_ix: {}, time_range: {:?}",
@@ -14,7 +14,7 @@ pub fn output(
     );
     // open source & seek to start point
     let mut input = ffmpeg_next::format::input(&path)?;
-    let ts = (ffmpeg_next::sys::AV_TIME_BASE as f32 * time_range.0) as i64;
+    let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * time_range.0) as i64;
     input.seek(ts, ..ts)?;
 
     let mut output = ffmpeg_next::format::output("./output.mp4")?;
@@ -57,7 +57,7 @@ pub fn output(
     for (stream, mut packet) in input.packets() {
         let pkt_pts = packet.pts().unwrap_or(0);
         let pkt_dts = packet.dts().unwrap_or(pkt_pts);
-        let frame_time = pkt_pts as f32 / stream.time_base().denominator() as f32;
+        let frame_time = pkt_pts as f64 / stream.time_base().denominator() as f64;
         let this_ix = stream.index();
         // when video frame out the range
         if frame_time > time_range.1 && this_ix == target_video_ix {
