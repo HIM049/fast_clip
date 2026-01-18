@@ -1,7 +1,10 @@
+use std::path::PathBuf;
+
 use app_assets::icons;
 use gpui::{
-    AnyElement, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Window, div, prelude::FluentBuilder,
+    AnyElement, AppContext, Context, Entity, ExternalPaths, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, ParentElement, Render, Styled, Window, div,
+    prelude::FluentBuilder,
 };
 use gpui_component::{ActiveTheme, StyledExt};
 
@@ -50,6 +53,15 @@ impl MyApp {
         }
     }
 
+    pub fn open_file(&mut self, cx: &mut Context<Self>, path: &PathBuf) {
+        if self.player.is_init() {
+            self.close_file();
+        }
+        self.player.open(cx, &path).unwrap();
+        self.player.start_play(cx);
+        cx.notify();
+    }
+
     pub fn new_player(&mut self) {
         self.player = Player::new(self.size.clone(), self.output_parames.clone());
     }
@@ -57,11 +69,6 @@ impl MyApp {
     pub fn close_file(&mut self) {
         self.selection_range = (None, None);
         self.new_player();
-    }
-
-    pub fn run(&mut self, cx: &mut Context<Self>) {
-        self.player.start_play(cx);
-        cx.notify();
     }
 
     fn play_percent(&self) -> f32 {
@@ -95,13 +102,8 @@ impl MyApp {
 
     fn listen_open(params: &Entity<OutputParams>, cx: &mut Context<Self>) {
         cx.observe(params, |this, e: Entity<OutputParams>, cx| {
-            if this.player.is_init() {
-                this.close_file();
-            }
-
             if let Some(path) = e.read(cx).path.clone() {
-                this.player.open(cx, &path).unwrap();
-                this.run(cx);
+                this.open_file(cx, &path);
             }
         })
         .detach();
@@ -131,6 +133,11 @@ impl Render for MyApp {
                     .on_action(cx.listener(on_foward))
                     .on_action(cx.listener(on_set_start))
                     .on_action(cx.listener(on_set_end))
+                    .on_drop(cx.listener(|this, e: &ExternalPaths, _, cx| {
+                        if let Some(path) = e.paths().first() {
+                            this.open_file(cx, path);
+                        }
+                    }))
                     .v_flex()
                     .size_full()
                     .min_h_0()

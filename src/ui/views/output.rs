@@ -48,7 +48,9 @@ impl OutputView {
             println!("DEBUG: error when output: None selected_range");
             return;
         };
-        output(path, v_ix, a_ix, range).unwrap();
+        if let Err(e) = output(path, v_ix, a_ix, range) {
+            println!("error when output: {}", e);
+        }
     }
 
     fn listen_path(_: &mut Self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
