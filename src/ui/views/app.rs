@@ -153,7 +153,20 @@ impl Render for MyApp {
                             .size_full()
                             .border_1()
                             .border_color(cx.theme().border)
-                            .child(self.player.view(window)),
+                            .child(self.player.view(window))
+                            .when(self.player.is_seeking(), |this| {
+                                this.child(
+                                    div()
+                                        .absolute()
+                                        .border_1()
+                                        .border_color(gpui::white())
+                                        .bg(gpui::black().alpha(0.7))
+                                        .px_10()
+                                        .py_6()
+                                        .font_bold()
+                                        .child("Loading..."),
+                                )
+                            }),
                     )
                     .child(
                         // control zone

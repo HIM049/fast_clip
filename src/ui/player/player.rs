@@ -101,6 +101,10 @@ impl Player {
         self.init
     }
 
+    pub fn is_seeking(&self) -> bool {
+        self.is_seeking
+    }
+
     /// Get current player state
     pub fn get_state(&self) -> PlayState {
         self.state

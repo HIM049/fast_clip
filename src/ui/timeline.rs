@@ -101,7 +101,6 @@ impl Element for Timeline {
         let point_color = rgb(0xFFF29A);
 
         let indi_x = self.indicator_x(bounds);
-        let indi_y = self.origin_point.y - px(14.);
 
         // timeline base
         window.paint_quad(quad(
@@ -195,50 +194,36 @@ impl Element for Timeline {
             paint_dashline(window, point, self.origin_point.y - px(7.5), point_color);
         }
 
-        // triangle size
-        let head_size = px(5.0 / scale);
+        print_indicator(
+            window,
+            scale,
+            &self.origin_point,
+            base_h,
+            indi_x,
+            gpui::white(),
+        );
 
-        let width = px(1.0 / scale);
-        let height = px(20.);
-        let color = gpui::white();
-        let mut path = Path::new(self.origin_point);
+        let mouse_pos = window.mouse_position();
+        if bounds.contains(&mouse_pos) {
+            print_indicator(
+                window,
+                scale,
+                &self.origin_point,
+                base_h,
+                mouse_pos.x,
+                gpui::white().alpha(0.5),
+            );
+        }
 
-        // paint triangle
-        path.move_to(point(indi_x - head_size, indi_y)); // left top
-        path.line_to(point(indi_x + head_size, indi_y)); // right top
-        path.line_to(point(indi_x, indi_y + head_size)); // bottom corner
-        path.line_to(point(indi_x - head_size, indi_y)); // back to start
-        window.paint_path(path, color);
-
-        // paint indicator line
-        window.paint_quad(quad(
-            Bounds {
-                origin: point(
-                    indi_x - width / 2.0,
-                    self.origin_point.y - (height - base_h) / 2.,
-                ),
-                size: Size {
-                    width: width,
-                    height: height,
-                },
-            },
-            Corners::default(),
-            color,
-            px(0.),
-            color,
-            BorderStyle::default(),
-        ));
-
-        let on_click = self.on_click.clone();
-        window.on_mouse_event(move |e: &MouseDownEvent, phase, _, cx| {
-            if phase.bubble() && e.button == MouseButton::Left && bounds.contains(&e.position) {
-                let percent = e.position.x / bounds.size.width;
-                if let Some(handler) = on_click.as_ref() {
-                    (handler)(percent, cx);
+        if let Some(on_click) = self.on_click.clone() {
+            window.on_mouse_event(move |e: &MouseDownEvent, phase, _, cx| {
+                if phase.bubble() && e.button == MouseButton::Left && bounds.contains(&e.position) {
+                    let percent = e.position.x / bounds.size.width;
+                    on_click(percent, cx);
+                    cx.stop_propagation();
                 }
-                cx.stop_propagation();
-            }
-        });
+            });
+        }
     }
 }
 
@@ -248,6 +233,46 @@ impl IntoElement for Timeline {
     fn into_element(self) -> Self::Element {
         self
     }
+}
+
+fn print_indicator(
+    window: &mut Window,
+    scale: f32,
+    origin_point: &Point<Pixels>,
+    base_h: Pixels,
+    x: Pixels,
+    color: impl Into<Hsla>,
+) {
+    let color = color.into();
+    let head_size = px(5.0 / scale); // triangle size
+    let width = px(1.0 / scale);
+    let height = px(20.);
+    let indi_y = origin_point.y - px(14.);
+
+    let mut path = Path::new(*origin_point);
+
+    // paint triangle
+    path.move_to(point(x - head_size, indi_y)); // left top
+    path.line_to(point(x + head_size, indi_y)); // right top
+    path.line_to(point(x, indi_y + head_size)); // bottom corner
+    path.line_to(point(x - head_size, indi_y)); // back to start
+    window.paint_path(path, color);
+
+    // paint indicator line
+    window.paint_quad(quad(
+        Bounds {
+            origin: point(x - width / 2.0, origin_point.y - (height - base_h) / 2.),
+            size: Size {
+                width: width,
+                height: height,
+            },
+        },
+        Corners::default(),
+        color,
+        px(0.),
+        color,
+        BorderStyle::default(),
+    ));
 }
 
 fn paint_dashline(window: &mut Window, x: Pixels, y_start: Pixels, color: impl Into<Hsla>) {
