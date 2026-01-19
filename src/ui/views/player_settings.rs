@@ -75,7 +75,7 @@ impl PlayerSettingsView {
 impl Render for PlayerSettingsView {
     fn render(
         &mut self,
-        window: &mut gpui::Window,
+        _: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         div()

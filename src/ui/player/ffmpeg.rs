@@ -145,12 +145,15 @@ impl VideoDecoder {
 
         let a_stream = i
             .streams()
-            .best(ffmpeg_next::media::Type::Audio)
-            // .find(|s|{ s.id() == 2})
+            .find(|s| s.parameters().medium() == ffmpeg_next::media::Type::Audio)
+            // .best(ffmpeg_next::media::Type::Audio)
             .ok_or(anyhow!("failed to find video stream"))?;
 
         let mut rails: Vec<AudioRail> = vec![];
         for s in i.streams() {
+            if s.index() == v_stream.index() {
+                continue;
+            }
             let handler_name = match s.metadata().get("handler_name") {
                 Some(s) => Some(SharedString::from(s.to_string())),
                 None => None,
