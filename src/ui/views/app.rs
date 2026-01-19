@@ -9,7 +9,7 @@ use gpui::{
 use gpui_component::{ActiveTheme, StyledExt};
 
 use crate::{
-    Back, Close, Forward, SetEnd, SetStart, SwitchPlay,
+    Back, Close, Forward, OpenPlayerSetting, SetEnd, SetStart, SwitchPlay,
     components::app_title_bar::AppTitleBar,
     models::model::OutputParams,
     ui::{
@@ -20,6 +20,7 @@ use crate::{
             size::PlayerSize,
         },
         timeline::Timeline,
+        views::player_settings::{PlayerSettings, PlayerSettingsView},
     },
 };
 
@@ -31,6 +32,7 @@ pub struct MyApp {
     // here selection_range is percentage of progress
     selection_range: (Option<f32>, Option<f32>),
     focus_handle: FocusHandle,
+    settings: Entity<PlayerSettings>,
 }
 
 impl MyApp {
@@ -41,7 +43,9 @@ impl MyApp {
     ) -> Self {
         let title_bar = cx.new(|cx| AppTitleBar::new("FastClip", cx));
         let focus_handle = cx.focus_handle();
+        let settings = cx.new(|_| PlayerSettings::default());
         Self::listen_open(&param_entity, cx);
+        Self::listen_settings(&settings, cx);
 
         Self {
             title_bar,
@@ -50,6 +54,7 @@ impl MyApp {
             player: Player::new(size_entity, param_entity),
             selection_range: (None, None),
             focus_handle,
+            settings: settings,
         }
     }
 
@@ -59,7 +64,18 @@ impl MyApp {
             self.close_file(cx);
         }
         self.player.open(cx, &path).unwrap();
-        self.player.start_play(cx);
+        self.player.start_play(cx, None);
+
+        // init settings params
+        let params = self.output_parames.read(cx);
+        if let (Some(audio_ix), Some(audio_rails)) =
+            (params.audio_stream_ix, params.audio_rails.clone())
+        {
+            self.settings.update(cx, |s, _| {
+                s.audio_ix = audio_ix;
+                s.audio_rails = audio_rails;
+            });
+        }
         cx.notify();
     }
 
@@ -70,6 +86,23 @@ impl MyApp {
             p.selected_range = None;
         });
         self.player = Player::new(self.size.clone(), self.output_parames.clone());
+    }
+
+    /// reselect audio rail
+    fn reselect_rail(&mut self, cx: &mut Context<Self>, ix: usize) {
+        // save current time
+        self.player.pause_play();
+        let time = self.player.current_playtime();
+        // reset decoder
+        self.close_file(cx);
+        if let Some(p) = self.output_parames.read(cx).path.clone() {
+            self.player.open(cx, &p).unwrap();
+            self.player.start_play(cx, Some(ix));
+        }
+        // back to time before
+        if self.player.get_state() == PlayState::Playing {
+            self.player.seek_to(time);
+        }
     }
 
     /// calc player percent
@@ -111,11 +144,18 @@ impl MyApp {
         })
         .detach();
     }
+
+    fn listen_settings(params: &Entity<PlayerSettings>, cx: &mut Context<Self>) {
+        cx.observe(params, |this: &mut MyApp, e: Entity<PlayerSettings>, cx| {
+            this.reselect_rail(cx, e.read(cx).audio_ix);
+        })
+        .detach();
+    }
 }
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.player.get_state() == PlayState::Playing || true {
+        if self.player.get_state() != PlayState::Stopped {
             cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
@@ -130,6 +170,7 @@ impl Render for MyApp {
             .child(
                 div()
                     .track_focus(&self.focus_handle)
+                    .on_action(cx.listener(on_open_settings))
                     .on_action(cx.listener(on_close_file))
                     .on_action(cx.listener(on_switch))
                     .on_action(cx.listener(on_back))
@@ -188,7 +229,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
         .border_1()
         .border_color(cx.theme().border)
         .child(div().flex().w_full().child(
-            Timeline::new("process", this.play_percent(), this.selection_range).on_click(
+            Timeline::new("timeline", this.play_percent(), this.selection_range).on_click(
                 move |pct, cx| {
                     weak.update(cx, |this, _| {
                         this.player.seek_player(|_, dur| dur * pct as f64);
@@ -220,13 +261,13 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("go-back")
-                                .icon_path(icons::rounded::REPLAY_10_FILLED)
+                                .icon_path(icons::rounded::REPLAY_5_FILLED)
                                 .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Back), cx)),
                         )
                         .child(
                             RoundButton::new("go-forward")
-                                .icon_path(icons::rounded::FORWARD_10_FILLED)
+                                .icon_path(icons::rounded::FORWARD_5_FILLED)
                                 .small_icon()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Forward), cx)),
                         )
@@ -294,6 +335,15 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
         .into_any_element()
 }
 
+fn on_open_settings(
+    this: &mut MyApp,
+    _: &OpenPlayerSetting,
+    _: &mut Window,
+    cx: &mut Context<MyApp>,
+) {
+    PlayerSettingsView::open_window(cx, this.settings.clone()).unwrap();
+    cx.notify();
+}
 fn on_close_file(this: &mut MyApp, _: &Close, _: &mut Window, cx: &mut Context<MyApp>) {
     this.close_file(cx);
     cx.notify();
@@ -307,11 +357,11 @@ fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<
     cx.notify();
 }
 fn on_back(this: &mut MyApp, _: &Back, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.seek_player(|now, _| now - 10.);
+    this.player.seek_player(|now, _| now - 5.);
     cx.notify();
 }
 fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.seek_player(|now, _| now + 10.);
+    this.player.seek_player(|now, _| now + 5.);
     cx.notify();
 }
 

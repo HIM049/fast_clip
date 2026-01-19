@@ -38,3 +38,15 @@ menu.player:
 menu.audio:
   en: "Audio"
   zh-CN: "音频"
+
+ui.output:
+  en: "Output"
+  zh-CN: "导出"
+
+ui.cancel:
+  en: "Cancel"
+  zh-CN: "取消"
+
+ui.cp-stream:
+  en: "Copy Stream"
+  zh-CN: "复制流"

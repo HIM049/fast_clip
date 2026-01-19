@@ -17,7 +17,8 @@ use ffmpeg_next::{
         scaling::{self},
     },
 };
-use gpui::{Context, Entity};
+use gpui::{Context, Entity, SharedString};
+use gpui_component::select::SelectItem;
 use ringbuf::{
     HeapProd,
     traits::{Observer, Producer},
@@ -30,6 +31,30 @@ use crate::{
         views::app::MyApp,
     },
 };
+
+#[derive(Debug, Clone)]
+pub struct AudioRail {
+    pub ix: usize,
+    pub id: usize,
+    pub duration: i64,
+    pub handler_name: Option<SharedString>,
+}
+
+impl SelectItem for AudioRail {
+    type Value = usize;
+
+    fn title(&self) -> gpui::SharedString {
+        let name = match self.handler_name.clone() {
+            Some(n) => n,
+            None => "_".into(),
+        };
+        SharedString::new(format!("rail-{} ({})", self.id, name))
+    }
+
+    fn value(&self) -> &Self::Value {
+        &self.ix
+    }
+}
 
 #[derive(Debug)]
 pub enum DecoderEvent {
@@ -60,6 +85,7 @@ pub struct VideoDecoder {
     duration: i64,
     device_sample_rate: u32,
 
+    output_prarms: Entity<OutputParams>,
     v_producer: Option<HeapProd<FrameImage>>,
     a_producer: Option<HeapProd<f32>>,
     // size: Entity<PlayerSize>,
@@ -123,13 +149,18 @@ impl VideoDecoder {
             // .find(|s|{ s.id() == 2})
             .ok_or(anyhow!("failed to find video stream"))?;
 
+        let mut rails: Vec<AudioRail> = vec![];
         for s in i.streams() {
-            println!(
-                "DEBUG: Checking audio list: id {}, rate {}, meta {:?}",
-                s.id(),
-                s.rate(),
-                s.metadata().get("encoder")
-            );
+            let handler_name = match s.metadata().get("handler_name") {
+                Some(s) => Some(SharedString::from(s.to_string())),
+                None => None,
+            };
+            rails.push(AudioRail {
+                ix: s.index(),
+                id: s.id() as usize,
+                duration: s.duration(),
+                handler_name,
+            });
         }
 
         let d =
@@ -168,6 +199,7 @@ impl VideoDecoder {
             p.path = Some(path.clone());
             p.video_stream_ix = Some(v_stream.index());
             p.audio_stream_ix = Some(a_stream.index());
+            p.audio_rails = Some(rails);
         });
 
         Ok(Self {
@@ -180,10 +212,9 @@ impl VideoDecoder {
             duration,
             v_producer: None,
             a_producer: None,
-            // size,
-            // output_prarms,
             input: Some(i),
 
+            output_prarms,
             device_sample_rate: sample_rate,
 
             event: Arc::new(Mutex::new(DecoderEvent::None)),
@@ -218,7 +249,13 @@ impl VideoDecoder {
     }
 
     /// spawn decoder thread
-    pub fn spawn_decoder(&mut self, size: Entity<PlayerSize>, cx: &mut Context<MyApp>) {
+    /// TODO: let decoder take VideoDecoder struct, use only handle to control
+    pub fn spawn_decoder(
+        &mut self,
+        size: Entity<PlayerSize>,
+        cx: &mut Context<MyApp>,
+        audio_ix: Option<usize>,
+    ) {
         let resampler_params = self.resampler_params().unwrap();
 
         let Some(mut input) = self.input.take() else {
@@ -236,6 +273,12 @@ impl VideoDecoder {
         let Some(mut a_producer) = self.a_producer.take() else {
             return;
         };
+        if let Some(ix) = audio_ix {
+            self.audio_stream_ix = ix;
+            self.output_prarms.update(cx, |p, _| {
+                p.audio_stream_ix = Some(ix);
+            });
+        }
 
         let time_base = self.time_base;
         let audio_time_base = self.audio_time_base;

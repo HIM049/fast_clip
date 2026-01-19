@@ -17,7 +17,7 @@ mod ui;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
-actions!(menu, [Quit, About, Open, Close, Output]);
+actions!(menu, [Quit, About, Open, Close, Output, OpenPlayerSetting]);
 
 actions!([
     Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd
@@ -112,6 +112,10 @@ fn open_output_window(
     params: Entity<OutputParams>,
 ) -> impl Fn(&Output, &mut App) {
     move |_: &Output, cx: &mut App| {
+        // if params are not all ready
+        if !params.read(cx).all_some() {
+            return;
+        }
         window_state.update(cx, |ws, cx| {
             match active_window(cx, &mut ws.output_handle) {
                 Ok(_) => return,

@@ -152,9 +152,9 @@ impl Player {
     }
 
     /// spawn decoder and start play
-    pub fn start_play(&mut self, cx: &mut Context<MyApp>) {
+    pub fn start_play(&mut self, cx: &mut Context<MyApp>, audio_ix: Option<usize>) {
         if let Some(decoder) = self.decoder.as_mut() {
-            decoder.spawn_decoder(self.size.clone(), cx);
+            decoder.spawn_decoder(self.size.clone(), cx, audio_ix);
             self.state = PlayState::Playing;
             self.timer.start();
         }
@@ -218,9 +218,11 @@ impl Player {
     where
         F: Fn(f64, f64) -> f64,
     {
-        let now = self.timer.current_time_sec();
-        let dur_sec = self.duration_sec().unwrap_or(0.);
-        self.seek_to(update_fn(now, dur_sec).clamp(0.0, dur_sec));
+        if self.state != PlayState::Stopped {
+            let now = self.timer.current_time_sec();
+            let dur_sec = self.duration_sec().unwrap_or(0.);
+            self.seek_to(update_fn(now, dur_sec).clamp(0.0, dur_sec));
+        }
     }
 
     /// seek player with sec

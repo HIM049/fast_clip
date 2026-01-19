@@ -22,7 +22,7 @@ a tiny video edit tool for make clips fast and eazy.
   - [ ] clip base preview & output
   - [ ] clip base edit
   - [ ] multiple source
-  - [ ] multiple audio stream
+  - [x] multiple audio stream select
   - [ ] multiple audio stream mix
   - [ ] framerate resample
   - [ ] manual decoder selector

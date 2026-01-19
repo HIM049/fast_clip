@@ -2,10 +2,7 @@ use gpui::{App, Entity, Menu, MenuItem, SharedString};
 use gpui_component::{Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::{
-    About, Close, Open, Output, Quit,
-    models::model::{SelectAudioChannel, SelectLocale},
-};
+use crate::{About, Close, Open, OpenPlayerSetting, Output, Quit, models::model::SelectLocale};
 
 pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
@@ -56,7 +53,7 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
         },
         Menu {
             name: SharedString::from(t!("menu.player")),
-            items: vec![audio_menu()],
+            items: vec![MenuItem::action(t!("menu.audio"), OpenPlayerSetting)],
         },
         Menu {
             name: SharedString::from(t!("menu.settings")),
@@ -66,16 +63,6 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
 
     app_menu_bar.update(cx, |menu_bar, cx| {
         menu_bar.reload(cx);
-    })
-}
-
-fn audio_menu() -> MenuItem {
-    MenuItem::Submenu(Menu {
-        name: SharedString::from(t!("menu.audio")),
-        items: vec![
-            MenuItem::action("Channel 1", SelectAudioChannel(0)).checked(false),
-            MenuItem::action("Channel 2", SelectAudioChannel(1)).checked(false),
-        ],
     })
 }
 

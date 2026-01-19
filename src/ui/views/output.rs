@@ -2,23 +2,25 @@ use std::path::{Path, PathBuf};
 
 use gpui::{AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div};
 use gpui_component::{
-    Sizable, StyledExt,
+    IndexPath, Sizable, StyledExt,
     button::{Button, ButtonVariants},
     checkbox::Checkbox,
     input::{Input, InputState},
     label::Label,
+    select::{Select, SelectState},
 };
+use rust_i18n::t;
 
 use crate::{
     models::model::OutputParams,
-    ui::{button::RoundButton, output::output::output},
+    ui::{output::output::output, player::ffmpeg::AudioRail},
 };
 
 pub struct OutputView {
     params: Entity<OutputParams>,
     input: Entity<InputState>,
     updated_path: Option<PathBuf>,
-    audio_ix: usize,
+    audio_select: Entity<SelectState<Vec<AudioRail>>>,
 }
 
 impl OutputView {
@@ -27,33 +29,31 @@ impl OutputView {
         cx: &mut gpui::App,
         params: Entity<OutputParams>,
     ) -> Self {
+        let p = params.read(cx);
+        let rails = p.audio_rails.clone().unwrap();
+        let selected_index = Some(IndexPath::new(p.audio_stream_ix.unwrap()));
+        let audio_select = cx.new(|cx| SelectState::new(rails, selected_index, window, cx));
         Self {
             params,
             input: cx.new(|cx| InputState::new(window, cx).default_value("./output.mp4")),
             updated_path: None,
-            audio_ix: 0,
+            audio_select,
         }
     }
 
     pub fn run_output(&self, cx: &mut gpui::App) {
         let param = self.params.read(cx);
-        let Some(path) = param.path.as_ref() else {
-            println!("DEBUG: error when output: None path");
+        if !param.all_some() {
             return;
-        };
-        let Some(v_ix) = param.video_stream_ix else {
-            println!("DEBUG: error when output: None video_stream_ix");
-            return;
-        };
-        let Some(a_ix) = param.audio_stream_ix else {
-            println!("DEBUG: error when output: None audio_stream_ix");
-            return;
-        };
-        let Some(range) = param.selected_range else {
-            println!("DEBUG: error when output: None selected_range");
-            return;
-        };
-        if let Err(e) = output(path, v_ix, self.audio_ix, range) {
+        }
+        let path = param.path.as_ref().unwrap();
+        let v_ix = param.video_stream_ix.unwrap();
+        let mut a_ix = param.audio_stream_ix.unwrap();
+        let range = param.selected_range.unwrap();
+        if let Some(ix) = self.audio_select.read(cx).selected_value() {
+            a_ix = *ix;
+        }
+        if let Err(e) = output(path, v_ix, a_ix, range) {
             println!("error when output: {}", e);
         }
     }
@@ -122,21 +122,8 @@ impl Render for OutputView {
                     )
                     .child(
                         div()
-                            .h_flex()
-                            .gap_5()
-                            .child(RoundButton::new("min").label("-").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.audio_ix -= 1;
-                                    cx.notify();
-                                },
-                            )))
-                            .child(format!("audio ix {}", self.audio_ix))
-                            .child(RoundButton::new("plus").label("+").on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    this.audio_ix += 1;
-                                    cx.notify();
-                                },
-                            ))),
+                            .child(Label::new("Audio Rail"))
+                            .child(Select::new(&self.audio_select)),
                     )
                     .child(
                         div()
@@ -144,7 +131,7 @@ impl Render for OutputView {
                             // .child(Label::new("Output Path"))
                             .child(
                                 Checkbox::new("checkbox")
-                                    .label("Copy Stream")
+                                    .label(t!("ui.cp-stream").to_string())
                                     .checked(true)
                                     .on_click(|_, _, _| {}),
                             ),
@@ -158,7 +145,7 @@ impl Render for OutputView {
                     .child(
                         Button::new("cancel")
                             .small()
-                            .label("Cancel")
+                            .label(t!("ui.cancel"))
                             .on_click(|_, w, _| {
                                 w.remove_window();
                             }),
@@ -167,7 +154,7 @@ impl Render for OutputView {
                         Button::new("output")
                             .small()
                             .primary()
-                            .label("Output")
+                            .label(t!("ui.output"))
                             .on_click(cx.listener(|this, _, w, cx| {
                                 this.run_output(cx);
                                 w.remove_window();
