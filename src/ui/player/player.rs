@@ -50,7 +50,6 @@ pub struct Player {
     producer: Option<HeapProd<FrameImage>>,
     a_producer: Option<HeapProd<f32>>,
     consumer: HeapCons<FrameImage>,
-    // played_time: Option<f32>,
     state: PlayState,
 
     audio_player: AudioPlayer,
@@ -85,7 +84,6 @@ impl Player {
             producer: Some(v_producer),
             a_producer: Some(a_producer),
             consumer: v_consumer,
-            // played_time: None,
             state: PlayState::Stopped,
 
             audio_player,
@@ -98,10 +96,33 @@ impl Player {
         }
     }
 
+    /// Get player init state
     pub fn is_init(&self) -> bool {
         self.init
     }
 
+    /// Get current player state
+    pub fn get_state(&self) -> PlayState {
+        self.state
+    }
+
+    /// Get current play percentage
+    pub fn play_percentage(&self) -> Option<f32> {
+        let Some(decoder) = self.decoder.as_ref() else {
+            return None;
+        };
+        let Some(duration) = decoder.get_duration() else {
+            return None;
+        };
+        let timebase = decoder.get_timebase();
+        if duration.is_negative() {
+            return None;
+        }
+        let d_sec = (duration as f64 / timebase.denominator() as f64) as f32;
+        Some((self.current_playtime() / d_sec as f64) as f32)
+    }
+
+    /// open video file, this will set the init state as true
     pub fn open<T>(&mut self, cx: &mut Context<T>, path: &PathBuf) -> anyhow::Result<()>
     where
         T: 'static,
@@ -126,6 +147,7 @@ impl Player {
         Ok(())
     }
 
+    /// spawn decoder and start play
     pub fn start_play(&mut self, cx: &mut Context<MyApp>) {
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.spawn_decoder(self.size.clone(), cx);
@@ -134,12 +156,7 @@ impl Player {
         }
     }
 
-    // fn start_time(&mut self) {
-    //     self.timer.start();
-    //     self.sample_count.store(0, Ordering::Relaxed);
-    //     self.audio_player.play().unwrap();
-    // }
-
+    /// player control method
     pub fn resume_play(&mut self) {
         self.state = PlayState::Playing;
         self.timer.start();
@@ -149,6 +166,7 @@ impl Player {
         }
     }
 
+    /// player control method
     pub fn pause_play(&mut self) {
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.set_event(DecoderEvent::Pause);
@@ -158,16 +176,18 @@ impl Player {
         }
     }
 
+    /// player control method, stop decoder and reset state
     pub fn stop_play(&mut self) {
+        self.init = false;
         self.state = PlayState::Stopped;
         self.frame = generate_image_fallback((1, 1), vec![]);
         self.frame_buf = None;
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.set_event(DecoderEvent::Stop);
         }
-        // TODO: drop decoder
     }
 
+    /// find and seek to last key frame
     pub fn last_key(&mut self) {
         self.is_waiting = true;
         self.timer.stop();
@@ -178,6 +198,7 @@ impl Player {
         }
     }
 
+    /// find and seek to next key frame
     pub fn next_key(&mut self) {
         self.is_waiting = true;
         self.timer.stop();
@@ -188,25 +209,7 @@ impl Player {
         }
     }
 
-    // pub fn set_playtime<F>(&mut self, update_fn: F)
-    // where
-    //     F: Fn(f64, f64) -> f64,
-    // {
-    //     self.timer.stop();
-    //     self.is_time_set = true;
-    //     let now = self.timer.current_time_sec();
-    //     let dur_sec = self.duration_sec().unwrap_or(0.);
-    //     self.timer
-    //         .set_time_sec(update_fn(now, dur_sec).clamp(0.0, dur_sec));
-    // }
-    fn audio_play_block(&mut self) {
-        self.play_signal.store(false, Ordering::Release);
-        self.audio_player.play().unwrap();
-        while !self.play_signal.load(Ordering::Acquire) {
-            thread::sleep(Duration::from_millis(1));
-        }
-    }
-
+    /// seek player with update fn
     pub fn seek_player<F>(&mut self, update_fn: F)
     where
         F: Fn(f64, f64) -> f64,
@@ -216,6 +219,7 @@ impl Player {
         self.seek_to(update_fn(now, dur_sec).clamp(0.0, dur_sec));
     }
 
+    /// seek player with sec
     pub fn seek_to(&mut self, time: f64) {
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.set_event(DecoderEvent::Seek(time));
@@ -226,25 +230,7 @@ impl Player {
         self.audio_player.pause().unwrap();
     }
 
-    pub fn get_state(&self) -> PlayState {
-        self.state
-    }
-
-    pub fn play_percentage(&self) -> Option<f32> {
-        let Some(decoder) = self.decoder.as_ref() else {
-            return None;
-        };
-        let Some(duration) = decoder.get_duration() else {
-            return None;
-        };
-        let timebase = decoder.get_timebase();
-        if duration.is_negative() {
-            return None;
-        }
-        let d_sec = (duration as f64 / timebase.denominator() as f64) as f32;
-        Some((self.current_playtime() / d_sec as f64) as f32)
-    }
-
+    /// get and calc video duration by timebase
     pub fn duration_sec(&self) -> Option<f64> {
         let Some(decoder) = self.decoder.as_ref() else {
             return None;
@@ -256,18 +242,21 @@ impl Player {
         Some(duration as f64 / timebase.denominator() as f64)
     }
 
-    // calc current time
+    /// calc current time
     pub fn current_playtime(&self) -> f64 {
         self.timer.current_time_sec()
     }
 
-    // // save current time & pause audio output
-    // fn pause_timer(&mut self) {
-    //     self.played_time = Some(self.current_playtime());
-    //     self.audio_player.pause().unwrap();
-    //     self.sample_count.store(0, Ordering::Relaxed);
-    // }
+    /// block and wait next audio callback signal
+    fn audio_play_block(&mut self) {
+        self.play_signal.store(false, Ordering::Release);
+        self.audio_player.play().unwrap();
+        while !self.play_signal.load(Ordering::Acquire) {
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
 
+    /// calc frame pts by timebase
     fn frame_time(&self, pts: i64) -> Option<f64> {
         if pts.is_negative() {
             return None;
@@ -279,14 +268,14 @@ impl Player {
         Some(pts as f64 / time_base.denominator() as f64)
     }
 
-    /// only for playing control
+    /// compare frame and decision action
     fn compare_time(&mut self, frame: &FrameImage) -> FrameAction {
         let Some(frame_time) = self.frame_time(frame.pts) else {
             return FrameAction::Wait;
         };
         self.recent_pts = frame_time;
 
-        // if currnet resseking
+        // when resseking
         if self.is_seeking {
             // wait first reeked frame
             if frame.reseeked {
@@ -301,6 +290,7 @@ impl Player {
                 }
                 return FrameAction::Render;
             } else {
+                // drop remain frame
                 return FrameAction::Drop;
             }
         }
@@ -313,15 +303,6 @@ impl Player {
                 FrameAction::Wait
             }
         } else {
-            // if self.is_seeking && !self.is_time_set {
-            //     return FrameAction::Drop;
-            // } else {
-            //     self.is_seeking = true;
-            //     self.is_time_set = false;
-            //     // self.pause_timer();
-            //     self.timer.stop();
-            //     FrameAction::ReSeek(play_time)
-            // }
             return FrameAction::Drop;
         }
     }
@@ -337,17 +318,19 @@ impl Player {
         )
     }
 
+    /// build new viewer for every frame
     pub fn view(&mut self, w: &mut Window) -> Viewer {
-        // whether need to play next frames when need
+        // only keep flash when playing and seeking
         if self.state == PlayState::Playing || self.is_seeking {
+            // on the end of play
             if self.timer.current_time_sec() >= self.duration_sec().unwrap_or(0.0)
                 && !self.is_seeking
             {
                 self.pause_play();
                 self.seek_to(0.0);
             }
-            let next_frame: Option<FrameImage>;
             // prepare next frame from buf or decoder
+            let next_frame: Option<FrameImage>;
             if let Some(fb) = self.frame_buf.take() {
                 // if buffer is not none, clear it first
                 next_frame = Some(fb);
@@ -357,6 +340,7 @@ impl Player {
                 next_frame = None;
             }
 
+            // render the frame by conpare result
             if let Some(next_frame) = next_frame {
                 match self.compare_time(&next_frame) {
                     FrameAction::Wait => {
