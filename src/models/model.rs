@@ -51,5 +51,9 @@ impl OutputParams {
 }
 
 #[derive(Action, Clone, PartialEq, Eq)]
-#[action(namespace = story, no_json)]
+#[action(namespace = menu, no_json)]
 pub struct SelectLocale(pub SharedString);
+
+#[derive(Action, Clone, PartialEq, Eq)]
+#[action(namespace = menu, no_json)]
+pub struct SelectAudioChannel(pub usize);

@@ -17,7 +17,7 @@ mod ui;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
-actions!(menu, [Quit, About, Open, Close, Output, SelectLocale]);
+actions!(menu, [Quit, About, Open, Close, Output]);
 
 actions!([
     Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd
