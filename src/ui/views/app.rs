@@ -202,6 +202,7 @@ impl Render for MyApp {
                                         .border_1()
                                         .border_color(gpui::white())
                                         .bg(gpui::black().alpha(0.7))
+                                        .rounded_sm()
                                         .px_10()
                                         .py_6()
                                         .font_bold()
