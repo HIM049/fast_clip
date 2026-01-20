@@ -13,3 +13,5 @@ pub static FORWARD_10_FILLED: &str = "icons/forward_10_filled_rounded.svg";
 pub static REPLAY_10_FILLED: &str = "icons/replay_10_filled_rounded.svg";
 pub static SELECTED_START_FILLED: &str = "icons/select_beginning_rounded.svg";
 pub static SELECTED_END_FILLED: &str = "icons/select_end_rounded.svg";
+
+pub static GITHUB: &str = "icons/github.svg";

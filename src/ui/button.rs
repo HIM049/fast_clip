@@ -73,7 +73,7 @@ impl RoundButton {
 impl RenderOnce for RoundButton {
     fn render(self, _: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
         // let bg_color = self.color.unwrap_or(rgba(0xffffff40).into());
-        let bg_color = cx.theme().foreground.alpha(0.25);
+        let bg_color = self.color.unwrap_or(cx.theme().foreground.alpha(0.25));
         let border_color = cx.theme().foreground.alpha(0.30);
         div()
             .id(self.id)

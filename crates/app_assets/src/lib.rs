@@ -6,7 +6,7 @@ pub mod icons;
 
 #[derive(RustEmbed)]
 #[folder = "./assets"]
-#[include = "icons/**/*.svg"]
+#[include = "**/*.*"]
 pub struct Assets;
 
 impl AssetSource for Assets {
