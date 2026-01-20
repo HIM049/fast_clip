@@ -5,6 +5,7 @@ use gpui::*;
 use gpui_component::*;
 
 use crate::{
+    components::app_menu::{About, Open, Output, Quit},
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
@@ -17,8 +18,6 @@ mod models;
 mod ui;
 
 rust_i18n::i18n!("locales", fallback = "en");
-
-actions!(menu, [Quit, About, Open, Close, Output, OpenPlayerSetting]);
 
 actions!([
     Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd

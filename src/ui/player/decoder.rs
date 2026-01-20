@@ -18,7 +18,6 @@ use ffmpeg_next::{
     },
 };
 use gpui::{Context, Entity, SharedString};
-use gpui_component::select::SelectItem;
 use ringbuf::{
     HeapProd,
     traits::{Observer, Producer},
@@ -27,35 +26,14 @@ use ringbuf::{
 use crate::{
     models::model::OutputParams,
     ui::{
-        player::{frame::FrameImage, size::PlayerSize, utils::generate_image_fallback},
+        player::{
+            model::{AudioRail, FrameImage},
+            size::PlayerSize,
+            utils::generate_image_fallback,
+        },
         views::app::MyApp,
     },
 };
-
-#[derive(Debug, Clone)]
-pub struct AudioRail {
-    pub code: usize,
-    pub ix: usize,
-    pub id: usize,
-    pub duration: i64,
-    pub handler_name: Option<SharedString>,
-}
-
-impl SelectItem for AudioRail {
-    type Value = usize;
-
-    fn title(&self) -> gpui::SharedString {
-        let name = match self.handler_name.clone() {
-            Some(n) => n,
-            None => "_".into(),
-        };
-        SharedString::new(format!("rail-{} ({})", self.code, name))
-    }
-
-    fn value(&self) -> &Self::Value {
-        &self.ix
-    }
-}
 
 #[derive(Debug)]
 pub enum DecoderEvent {

@@ -9,7 +9,7 @@ use gpui_component::{
     select::{Select, SelectState},
 };
 
-use crate::ui::player::ffmpeg::AudioRail;
+use crate::ui::player::model::AudioRail;
 
 pub struct PlayerSettings {
     pub audio_ix: usize,

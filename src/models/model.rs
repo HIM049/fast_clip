@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use gpui::{Action, App, SharedString, WindowHandle};
+use gpui::{App, WindowHandle};
 use gpui_component::Root;
 
-use crate::ui::player::ffmpeg::AudioRail;
+use crate::ui::player::model::AudioRail;
 
 pub struct WindowState {
     pub output_handle: Option<WindowHandle<Root>>,
@@ -62,7 +62,3 @@ impl OutputParams {
             && self.audio_rails.is_some()
     }
 }
-
-#[derive(Action, Clone, PartialEq, Eq)]
-#[action(namespace = menu, no_json)]
-pub struct SelectLocale(pub SharedString);

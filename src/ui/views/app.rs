@@ -9,8 +9,11 @@ use gpui::{
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 use crate::{
-    Back, Close, Forward, OpenPlayerSetting, SetEnd, SetStart, SwitchPlay,
-    components::app_title_bar::AppTitleBar,
+    Back, Forward, SetEnd, SetStart, SwitchPlay,
+    components::{
+        app_menu::{Close, OpenPlayerSetting},
+        app_title_bar::AppTitleBar,
+    },
     models::model::OutputParams,
     ui::{
         button::RoundButton,

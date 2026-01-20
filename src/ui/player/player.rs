@@ -21,8 +21,8 @@ use crate::{
     ui::{
         player::{
             audio::AudioPlayer,
-            ffmpeg::{DecoderEvent, VideoDecoder},
-            frame::{FrameAction, FrameImage},
+            decoder::{DecoderEvent, VideoDecoder},
+            model::{FrameAction, FrameImage},
             size::PlayerSize,
             timer::Timer,
             utils::generate_image_fallback,
@@ -309,17 +309,6 @@ impl Player {
         } else {
             return FrameAction::Drop;
         }
-    }
-
-    pub fn dbg_msg(&self) -> String {
-        format!(
-            "PlayInfo: PT {:.2}, RFT {:.2}, SEEKING {}, DIFF {:.2}, played_time {:?}",
-            self.current_playtime(),
-            self.recent_pts,
-            self.is_seeking,
-            self.current_playtime() - self.recent_pts,
-            self.timer.current_time_sec()
-        )
     }
 
     /// build new viewer for every frame

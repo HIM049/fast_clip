@@ -1,6 +1,6 @@
 pub mod audio;
-pub mod ffmpeg;
-pub mod frame;
+pub mod decoder;
+pub mod model;
 pub mod player;
 pub mod size;
 pub mod timer;

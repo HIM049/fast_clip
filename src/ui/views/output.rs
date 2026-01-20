@@ -13,7 +13,7 @@ use rust_i18n::t;
 
 use crate::{
     models::model::OutputParams,
-    ui::{output::output::output, player::ffmpeg::AudioRail},
+    ui::{output::output::output, player::model::AudioRail},
 };
 
 pub struct OutputView {

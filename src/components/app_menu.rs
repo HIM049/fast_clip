@@ -1,8 +1,12 @@
-use gpui::{App, Entity, Menu, MenuItem, SharedString};
+use gpui::{Action, App, Entity, Menu, MenuItem, SharedString, actions};
 use gpui_component::{Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::{About, Close, Open, OpenPlayerSetting, Output, Quit, models::model::SelectLocale};
+actions!(menu, [Quit, About, Open, Close, Output, OpenPlayerSetting]);
+
+#[derive(Action, Clone, PartialEq, Eq)]
+#[action(namespace = menu, no_json)]
+pub struct SelectLocale(pub SharedString);
 
 pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
