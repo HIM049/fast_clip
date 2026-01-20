@@ -118,11 +118,8 @@ impl Player {
         let Some(duration) = decoder.get_duration() else {
             return None;
         };
-        let timebase = decoder.get_timebase();
-        if duration.is_negative() {
-            return None;
-        }
-        let d_sec = (duration as f64 / timebase.denominator() as f64) as f32;
+        let timebase = ffmpeg_next::sys::AV_TIME_BASE;
+        let d_sec = (duration as f64 / timebase as f64) as f32;
         Some((self.current_playtime() / d_sec as f64) as f32)
     }
 
@@ -244,8 +241,9 @@ impl Player {
         let Some(duration) = decoder.get_duration() else {
             return None;
         };
-        let timebase = decoder.get_timebase();
-        Some(duration as f64 / timebase.denominator() as f64)
+        // let timebase = decoder.get_timebase();
+        let timebase = ffmpeg_next::sys::AV_TIME_BASE;
+        Some(duration as f64 / timebase as f64)
     }
 
     /// calc current time

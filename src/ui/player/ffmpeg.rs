@@ -34,6 +34,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct AudioRail {
+    pub code: usize,
     pub ix: usize,
     pub id: usize,
     pub duration: i64,
@@ -48,7 +49,7 @@ impl SelectItem for AudioRail {
             Some(n) => n,
             None => "_".into(),
         };
-        SharedString::new(format!("rail-{} ({})", self.id, name))
+        SharedString::new(format!("rail-{} ({})", self.code, name))
     }
 
     fn value(&self) -> &Self::Value {
@@ -122,6 +123,9 @@ impl VideoDecoder {
         if self.duration == 0 {
             return None;
         }
+        if self.duration.is_negative() {
+            return None;
+        }
         Some(self.duration)
     }
 
@@ -150,7 +154,7 @@ impl VideoDecoder {
             .ok_or(anyhow!("failed to find video stream"))?;
 
         let mut rails: Vec<AudioRail> = vec![];
-        for s in i.streams() {
+        for (i, s) in i.streams().into_iter().enumerate() {
             if s.index() == v_stream.index() {
                 continue;
             }
@@ -159,6 +163,7 @@ impl VideoDecoder {
                 None => None,
             };
             rails.push(AudioRail {
+                code: i,
                 ix: s.index(),
                 id: s.id() as usize,
                 duration: s.duration(),
@@ -186,7 +191,7 @@ impl VideoDecoder {
         let audio_time_base = a_stream.time_base();
         // get sample rate and length of video frams
         let frame_rate = v_stream.avg_frame_rate();
-        let duration = v_stream.duration();
+        let duration = i.duration();
         // get original video size
         let original_width = v_decoder.width();
         let original_height = v_decoder.height();
