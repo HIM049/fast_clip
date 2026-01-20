@@ -5,7 +5,7 @@ use gpui::{
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, rgba, svg,
 };
-use gpui_component::{Colorize, StyledExt};
+use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 #[derive(IntoElement)]
 pub struct RoundButton {
@@ -71,8 +71,10 @@ impl RoundButton {
 }
 
 impl RenderOnce for RoundButton {
-    fn render(self, _: &mut gpui::Window, _: &mut gpui::App) -> impl gpui::IntoElement {
-        let bg_color = self.color.unwrap_or(rgba(0xffffff40).into());
+    fn render(self, _: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
+        // let bg_color = self.color.unwrap_or(rgba(0xffffff40).into());
+        let bg_color = cx.theme().foreground.alpha(0.25);
+        let border_color = cx.theme().foreground.alpha(0.30);
         div()
             .id(self.id)
             .flex()
@@ -80,7 +82,7 @@ impl RenderOnce for RoundButton {
             .items_center()
             .bg(bg_color)
             .border_1()
-            .border_color(rgba(0xffffff4d))
+            .border_color(border_color)
             .px_3()
             .py_1()
             .rounded_full()

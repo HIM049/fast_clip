@@ -6,7 +6,7 @@ use gpui::{
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Window, div,
     prelude::FluentBuilder,
 };
-use gpui_component::{ActiveTheme, StyledExt};
+use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 use crate::{
     Back, Close, Forward, OpenPlayerSetting, SetEnd, SetStart, SwitchPlay,
@@ -155,6 +155,7 @@ impl MyApp {
 
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let bg_color = cx.theme().background.darken(0.5);
         if self.player.get_state() != PlayState::Stopped {
             cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
@@ -192,8 +193,7 @@ impl Render for MyApp {
                             .justify_center()
                             .items_center()
                             .size_full()
-                            .border_1()
-                            .border_color(cx.theme().border)
+                            .bg(bg_color)
                             .child(self.player.view(window))
                             .when(self.player.is_seeking(), |this| {
                                 this.child(
@@ -221,6 +221,7 @@ impl Render for MyApp {
 fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
     let play_state = this.player.get_state();
     let weak = cx.weak_entity();
+    let bg_color = cx.theme().background;
 
     div()
         .v_flex()
@@ -229,6 +230,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
         .justify_between()
         .border_1()
         .border_color(cx.theme().border)
+        .bg(bg_color)
         .child(div().flex().w_full().child(
             Timeline::new("timeline", this.play_percent(), this.selection_range).on_click(
                 move |pct, cx| {

@@ -1,5 +1,5 @@
 use gpui::{IntoElement, ParentElement, RenderOnce, Styled, div, prelude::FluentBuilder};
-use gpui_component::StyledExt;
+use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 #[derive(IntoElement)]
 pub struct Chip {
@@ -18,18 +18,20 @@ impl Chip {
 }
 
 impl RenderOnce for Chip {
-    fn render(self, _: &mut gpui::Window, _: &mut gpui::App) -> impl gpui::IntoElement {
+    fn render(self, _: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
+        let bg_color = cx.theme().background.darken(0.5);
+        let font_color = cx.theme().foreground;
         div()
             .flex()
             .justify_center()
             .items_center()
-            .border_1()
-            .border_color(gpui::black())
-            .bg(gpui::black())
+            .bg(bg_color)
             .px_5()
             .py_1()
             .rounded_full()
             .font_bold()
-            .when_some(self.label, |div, label| div.child(label))
+            .when_some(self.label, |div, label| {
+                div.child(label).text_color(font_color)
+            })
     }
 }
