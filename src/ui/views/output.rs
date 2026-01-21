@@ -12,6 +12,7 @@ use gpui_component::{
     label::Label,
     select::{Select, SelectState},
 };
+use path_absolutize::Absolutize;
 use rust_i18n::t;
 
 use crate::{
@@ -44,7 +45,7 @@ impl OutputView {
             None
         };
         let audio_select = cx.new(|cx| SelectState::new(rails, selected_index, window, cx));
-        let default = SharedString::from(Self::abs_path_str("./output.mp4"));
+        let default = Self::abs_path_str("./output.mp4");
         Self {
             params,
             input: cx.new(|cx| InputState::new(window, cx).default_value(default.clone())),
@@ -55,9 +56,10 @@ impl OutputView {
     }
 
     fn abs_path_str(orignal_path: &str) -> String {
-        let abs =
-            dunce::canonicalize(Path::new(orignal_path)).unwrap_or(PathBuf::from(orignal_path));
-        abs.to_string_lossy().into_owned()
+        let p = Path::new(orignal_path);
+        let abs = p.absolutize().unwrap();
+        let abs_str = abs.to_string_lossy().into_owned();
+        abs_str
     }
 
     pub fn run_output(&self, cx: &mut gpui::App) {
