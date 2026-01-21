@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use app_assets::icons;
+use app_assets::icons::{self, rounded};
 use gpui::{
     AnyElement, AppContext, Context, Entity, ExternalPaths, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Window, div,
-    prelude::FluentBuilder,
+    prelude::FluentBuilder, rgba, svg,
 };
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
@@ -111,6 +111,20 @@ impl MyApp {
     /// calc player percent
     fn play_percent(&self) -> f32 {
         self.player.play_percentage().unwrap_or(0.)
+    }
+
+    fn range_time(&self) -> Option<(f64, f64)> {
+        if let (Some(dur), Some(a), Some(b)) = (
+            self.player.duration_sec(),
+            self.selection_range.0,
+            self.selection_range.1,
+        ) {
+            let at = dur * a as f64;
+            let bt = dur * b as f64;
+            Some((at, bt))
+        } else {
+            None
+        }
     }
 
     /// set and update range
@@ -227,10 +241,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
     let bg_color = cx.theme().background;
 
     div()
-        .v_flex()
         .w_full()
-        .h_1_3()
-        .justify_between()
         .border_1()
         .border_color(cx.theme().border)
         .bg(bg_color)
@@ -251,6 +262,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                 .items_center()
                 .w_full()
                 .p_4()
+                .pt_1()
                 .child(
                     div()
                         .h_flex()
@@ -326,16 +338,51 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
                         ),
                 )
-                .when_else(
-                    play_state != PlayState::Stopped,
-                    |div| {
-                        div.child(Chip::new().label(format!(
-                            "{} / {}",
-                            format_sec(this.player.current_playtime() as f64),
-                            format_sec(this.player.duration_sec().unwrap_or(0.))
-                        )))
-                    },
-                    |div| div.child(Chip::new().label("-- : -- / -- : --")),
+                .child(
+                    div()
+                        .h_flex()
+                        .gap_2()
+                        .when_some(this.range_time(), |this, time| {
+                            this.child(Chip::new().border().label(format!(
+                                "A {} -> B {}",
+                                format_sec(time.0),
+                                format_sec(time.1)
+                            )))
+                        })
+                        .when_else(
+                            play_state != PlayState::Stopped,
+                            |d| {
+                                d.child(
+                                    div()
+                                        .h_flex()
+                                        .rounded_full()
+                                        .bg(rgba(0xf0e59a26))
+                                        .when_some(this.range_time(), |this, time| {
+                                            this.child(
+                                                div()
+                                                    .h_flex()
+                                                    .pl_4()
+                                                    .pr_2()
+                                                    .gap_2()
+                                                    .items_center()
+                                                    .child(
+                                                        svg()
+                                                            .path(rounded::TIME_DURATION)
+                                                            .text_color(gpui::white())
+                                                            .size_5(),
+                                                    )
+                                                    .child(format_sec((time.1 - time.0).max(0.))),
+                                            )
+                                        })
+                                        .child(Chip::new().border().bold().label(format!(
+                                            "{} / {}",
+                                            format_sec(this.player.current_playtime() as f64),
+                                            format_sec(this.player.duration_sec().unwrap_or(0.))
+                                        ))),
+                                )
+                            },
+                            |div| div.child(Chip::new().border().bold().label("-- : -- / -- : --")),
+                        ),
                 ),
         )
         .into_any_element()

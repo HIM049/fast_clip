@@ -52,11 +52,11 @@ fn main() {
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
                     None,
-                    size(px(800.), px(700.)),
+                    size(px(1000.), px(800.)),
                     cx,
                 ))),
                 titlebar: Some(TitlebarOptions {
-                    title: Some("FastClip".into()),
+                    title: Some("Fast Clip".into()),
                     appears_transparent: true,
                     traffic_light_position: Some(gpui::point(px(9.0), px(9.0))),
                 }),

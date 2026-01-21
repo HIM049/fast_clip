@@ -56,7 +56,7 @@ pub struct Player {
 
     recent_pts: f64,
     is_seeking: bool,
-    is_waiting: bool,
+    handleing_time: Option<f64>,
 
     play_signal: Arc<AtomicBool>,
 }
@@ -90,7 +90,7 @@ impl Player {
 
             recent_pts: 0.0,
             is_seeking: false,
-            is_waiting: false,
+            handleing_time: None,
 
             play_signal,
         }
@@ -190,7 +190,6 @@ impl Player {
 
     /// find and seek to last key frame
     pub fn last_key(&mut self) {
-        self.is_waiting = true;
         self.timer.stop();
         let ct = self.timer.current_time_sec();
 
@@ -201,7 +200,6 @@ impl Player {
 
     /// find and seek to next key frame
     pub fn next_key(&mut self) {
-        self.is_waiting = true;
         self.timer.stop();
         let ct = self.timer.current_time_sec();
 
@@ -216,8 +214,12 @@ impl Player {
         F: Fn(f64, f64) -> f64,
     {
         if self.state != PlayState::Stopped {
-            let now = self.timer.current_time_sec();
             let dur_sec = self.duration_sec().unwrap_or(0.);
+            let now = match self.handleing_time.take() {
+                Some(t) => t,
+                None => self.timer.current_time_sec(),
+            };
+
             self.seek_to(update_fn(now, dur_sec).clamp(0.0, dur_sec));
         }
     }
@@ -227,6 +229,7 @@ impl Player {
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.set_event(DecoderEvent::Seek(time));
         };
+        self.handleing_time = Some(time);
         self.is_seeking = true;
         self.frame_buf = None;
         self.consumer.clear();
@@ -285,6 +288,7 @@ impl Player {
             if frame.reseeked {
                 // set status
                 self.is_seeking = false;
+                self.handleing_time = None;
                 // reset timer
                 self.timer.set_time_sec(self.frame_time(frame.pts).unwrap());
                 // resume play if need

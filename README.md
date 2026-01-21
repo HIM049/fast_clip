@@ -26,11 +26,13 @@ A simple video editor, helps you create clips fastly.
   - [x] keyboard binding
   - [ ] code transform
   - [ ] output compression
-  - [ ] clip base preview & output
-  - [ ] clip base edit
   - [ ] multiple source
   - [x] multiple audio stream select
   - [ ] multiple audio stream mix
   - [ ] framerate resample
   - [ ] manual decoder selector
   - [ ] volume adjust
+
+- version 2.0
+  - [ ] clip base preview & output
+  - [ ] clip base edit

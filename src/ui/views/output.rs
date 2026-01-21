@@ -31,7 +31,14 @@ impl OutputView {
     ) -> Self {
         let p = params.read(cx);
         let rails = p.audio_rails.clone().unwrap();
-        let selected_index = Some(IndexPath::new(p.audio_stream_ix.unwrap()));
+        let list_ix = rails
+            .iter()
+            .position(|r| r.ix == p.audio_stream_ix.unwrap());
+        let selected_index = if let Some(ix) = list_ix {
+            Some(IndexPath::new(ix))
+        } else {
+            None
+        };
         let audio_select = cx.new(|cx| SelectState::new(rails, selected_index, window, cx));
         Self {
             params,

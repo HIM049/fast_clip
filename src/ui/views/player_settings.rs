@@ -34,7 +34,13 @@ impl PlayerSettingsView {
     fn new(cx: &mut App, window: &mut Window, settings: Entity<PlayerSettings>) -> Self {
         let s = settings.read(cx);
         let rails = s.audio_rails.clone();
-        let selected_index = Some(IndexPath::new(s.audio_ix));
+        let list_ix = rails.iter().position(|r| r.ix == s.audio_ix);
+        let selected_index = if let Some(ix) = list_ix {
+            Some(IndexPath::new(ix))
+        } else {
+            None
+        };
+
         let select = cx.new(|cx| SelectState::new(rails, selected_index, window, cx));
         Self {
             settings: settings,
