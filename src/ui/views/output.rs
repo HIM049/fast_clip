@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use gpui::{AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div};
+use gpui::{
+    AppContext, ClickEvent, Context, Entity, ParentElement, Render, SharedString, Styled, Window,
+    div,
+};
 use gpui_component::{
     IndexPath, Sizable, StyledExt,
     button::{Button, ButtonVariants},
@@ -19,8 +22,9 @@ use crate::{
 pub struct OutputView {
     params: Entity<OutputParams>,
     input: Entity<InputState>,
-    updated_path: Option<PathBuf>,
+    output_path: PathBuf,
     audio_select: Entity<SelectState<Vec<AudioRail>>>,
+    update_path: bool,
 }
 
 impl OutputView {
@@ -40,12 +44,20 @@ impl OutputView {
             None
         };
         let audio_select = cx.new(|cx| SelectState::new(rails, selected_index, window, cx));
+        let default = SharedString::from(Self::abs_path_str("./output.mp4"));
         Self {
             params,
-            input: cx.new(|cx| InputState::new(window, cx).default_value("./output.mp4")),
-            updated_path: None,
+            input: cx.new(|cx| InputState::new(window, cx).default_value(default.clone())),
+            output_path: PathBuf::from(default.to_string()),
             audio_select,
+            update_path: false,
         }
+    }
+
+    fn abs_path_str(orignal_path: &str) -> String {
+        let abs =
+            dunce::canonicalize(Path::new(orignal_path)).unwrap_or(PathBuf::from(orignal_path));
+        abs.to_string_lossy().into_owned()
     }
 
     pub fn run_output(&self, cx: &mut gpui::App) {
@@ -60,7 +72,7 @@ impl OutputView {
         if let Some(ix) = self.audio_select.read(cx).selected_value() {
             a_ix = *ix;
         }
-        if let Err(e) = output(path, v_ix, a_ix, range) {
+        if let Err(e) = output(path, &self.output_path, v_ix, a_ix, range) {
             println!("error when output: {}", e);
         }
     }
@@ -77,7 +89,8 @@ impl OutputView {
             };
             if let Some(path) = r {
                 this.update(cx, |this, _| {
-                    this.updated_path = Some(path);
+                    this.output_path = path;
+                    this.update_path = true;
                 })
                 .unwrap();
             }
@@ -92,12 +105,11 @@ impl Render for OutputView {
         w: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        if let Some(path) = self.updated_path.take() {
+        if self.update_path {
             self.input.update(cx, |i, cx| {
-                self.params.update(cx, |p, _| {
-                    p.path = Some(path.clone());
-                });
-                i.set_value(path.to_string_lossy().to_string(), w, cx);
+                let path =
+                    Self::abs_path_str(self.output_path.to_string_lossy().into_owned().as_str());
+                i.set_value(path, w, cx);
             });
         }
 

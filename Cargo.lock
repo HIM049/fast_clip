@@ -1780,6 +1780,7 @@ dependencies = [
  "app_assets",
  "async-channel 2.5.0",
  "cpal",
+ "dunce",
  "ffmpeg-next",
  "gpui",
  "gpui-component",

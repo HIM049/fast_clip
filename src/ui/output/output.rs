@@ -4,6 +4,7 @@ use anyhow::anyhow;
 
 pub fn output(
     path: &PathBuf,
+    out_path: &PathBuf,
     target_video_ix: usize,
     target_audio_ix: usize,
     time_range: (f64, f64),
@@ -17,7 +18,7 @@ pub fn output(
     let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * time_range.0) as i64;
     input.seek(ts, ..ts)?;
 
-    let mut output = ffmpeg_next::format::output("./output.mp4")?;
+    let mut output = ffmpeg_next::format::output(out_path)?;
 
     // create video stream
     let video_out_ix;
