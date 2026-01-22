@@ -20,7 +20,7 @@ mod ui;
 rust_i18n::i18n!("locales", fallback = "en");
 
 actions!([
-    Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd
+    Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd, VolumeUp, VolumeDown
 ]);
 
 fn main() {
@@ -46,6 +46,10 @@ fn main() {
         cx.bind_keys([KeyBinding::new("right", Forward, None)]);
         cx.bind_keys([KeyBinding::new("[", SetStart, None)]);
         cx.bind_keys([KeyBinding::new("]", SetEnd, None)]);
+        cx.bind_keys([KeyBinding::new("up", VolumeUp, None)]);
+        cx.bind_keys([KeyBinding::new("down", VolumeDown, None)]);
+
+        cx.bind_keys([KeyBinding::new("ctrl-s", Output, None)]);
 
         cx.set_http_client(Arc::new(http));
         cx.open_window(

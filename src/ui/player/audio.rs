@@ -4,6 +4,7 @@ use std::sync::{
 };
 
 use anyhow::anyhow;
+use atomic_float::AtomicF32;
 use cpal::{
     StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -61,15 +62,21 @@ impl AudioPlayer {
         self.sample_rate
     }
 
-    pub fn spawn(&mut self, mut consumer: HeapCons<f32>, signal: Arc<AtomicBool>) {
+    pub fn spawn(
+        &mut self,
+        mut consumer: HeapCons<f32>,
+        signal: Arc<AtomicBool>,
+        gain: Arc<AtomicF32>,
+    ) {
         let stream = self
             .device
             .build_output_stream(
                 &self.config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                     let r_lenth = consumer.pop_slice(data);
+                    let g = gain.load(Ordering::Relaxed);
                     for sample in &mut data[..r_lenth] {
-                        *sample *= 0.3;
+                        *sample *= g;
                     }
                     for sample in &mut data[r_lenth..] {
                         *sample = 0.0;

@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use atomic_float::AtomicF32;
 use gpui::{Context, Entity, RenderImage, Window};
 use ringbuf::{
     HeapCons, HeapProd,
@@ -59,6 +60,7 @@ pub struct Player {
     handleing_time: Option<f64>,
 
     play_signal: Arc<AtomicBool>,
+    audio_gain: Arc<AtomicF32>,
 }
 
 impl Player {
@@ -71,7 +73,8 @@ impl Player {
         let (a_producer, a_consumer) = rb.split();
 
         let play_signal = Arc::new(AtomicBool::new(false));
-        audio_player.spawn(a_consumer, play_signal.clone());
+        let audio_gain = Arc::new(AtomicF32::new(0.5));
+        audio_player.spawn(a_consumer, play_signal.clone(), audio_gain.clone());
 
         Self {
             init: false,
@@ -93,6 +96,7 @@ impl Player {
             handleing_time: None,
 
             play_signal,
+            audio_gain,
         }
     }
 
@@ -234,6 +238,15 @@ impl Player {
         self.frame_buf = None;
         self.consumer.clear();
         self.audio_player.pause().unwrap();
+    }
+
+    pub fn get_gain(&self) -> f32 {
+        self.audio_gain.load(Ordering::Relaxed)
+    }
+
+    pub fn set_gain(&mut self, gain: f32) {
+        self.audio_gain
+            .store(gain.clamp(0.0, 1.0), Ordering::Relaxed);
     }
 
     /// get and calc video duration by timebase

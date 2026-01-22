@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use app_assets::icons::{self, rounded};
 use gpui::{
@@ -9,7 +9,7 @@ use gpui::{
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 use crate::{
-    Back, Forward, SetEnd, SetStart, SwitchPlay,
+    Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
     components::{
         app_menu::{Close, OpenPlayerSetting},
         app_title_bar::AppTitleBar,
@@ -27,6 +27,13 @@ use crate::{
     },
 };
 
+#[derive(Debug, PartialEq)]
+enum MessageState {
+    Timer,
+    Seeking,
+    None,
+}
+
 pub struct MyApp {
     title_bar: Entity<AppTitleBar>,
     size: Entity<PlayerSize>,
@@ -36,6 +43,8 @@ pub struct MyApp {
     selection_range: (Option<f32>, Option<f32>),
     focus_handle: FocusHandle,
     settings: Entity<PlayerSettings>,
+    message: Option<String>,
+    message_mgr: MessageState,
 }
 
 impl MyApp {
@@ -44,7 +53,7 @@ impl MyApp {
         size_entity: Entity<PlayerSize>,
         param_entity: Entity<OutputParams>,
     ) -> Self {
-        let title_bar = cx.new(|cx| AppTitleBar::new("FastClip", cx));
+        let title_bar = cx.new(|cx| AppTitleBar::new("Fast Clip", cx));
         let focus_handle = cx.focus_handle();
         let settings = cx.new(|_| PlayerSettings::default());
         Self::listen_open(&param_entity, cx);
@@ -58,6 +67,8 @@ impl MyApp {
             selection_range: (None, None),
             focus_handle,
             settings: settings,
+            message: None,
+            message_mgr: MessageState::None,
         }
     }
 
@@ -152,6 +163,32 @@ impl MyApp {
         None
     }
 
+    fn show_message(&mut self, cx: &mut Context<Self>, message: String, dur: Option<Duration>) {
+        if let Some(dur) = dur {
+            cx.spawn(async move |weak, cx| {
+                cx.background_executor().timer(dur).await;
+                weak.update(cx, |this, _| {
+                    this.message = None;
+                    this.message_mgr = MessageState::None;
+                })
+                .unwrap();
+            })
+            .detach();
+            self.message_mgr = MessageState::Timer;
+        } else {
+            self.message_mgr = MessageState::None;
+        }
+        self.message = Some(message);
+    }
+
+    fn show_vol(&mut self, cx: &mut Context<Self>) {
+        self.show_message(
+            cx,
+            format!("Volume: {:.0}%", self.player.get_gain() * 100.),
+            Some(Duration::from_secs(2)),
+        );
+    }
+
     /// listen open file event
     fn listen_open(params: &Entity<OutputParams>, cx: &mut Context<Self>) {
         cx.observe(params, |this, e: Entity<OutputParams>, cx| {
@@ -179,6 +216,15 @@ impl Render for MyApp {
                 cx.notify();
             });
         }
+        if self.message_mgr != MessageState::Timer {
+            if self.player.is_seeking() {
+                self.message = Some("Loading...".into());
+                self.message_mgr = MessageState::Seeking;
+            } else {
+                self.message = None;
+                self.message_mgr = MessageState::None;
+            }
+        }
 
         div()
             .bg(cx.theme().background)
@@ -195,6 +241,8 @@ impl Render for MyApp {
                     .on_action(cx.listener(on_foward))
                     .on_action(cx.listener(on_set_start))
                     .on_action(cx.listener(on_set_end))
+                    .on_action(cx.listener(on_vol_up))
+                    .on_action(cx.listener(on_vol_down))
                     .on_drop(cx.listener(|this, e: &ExternalPaths, _, cx| {
                         if let Some(path) = e.paths().first() {
                             this.open_file(cx, path);
@@ -212,7 +260,7 @@ impl Render for MyApp {
                             .size_full()
                             .bg(bg_color)
                             .child(self.player.view(window))
-                            .when(self.player.is_seeking(), |this| {
+                            .when_some(self.message.clone(), |this, msg| {
                                 this.child(
                                     div()
                                         .absolute()
@@ -223,7 +271,7 @@ impl Render for MyApp {
                                         .px_10()
                                         .py_6()
                                         .font_bold()
-                                        .child("Loading..."),
+                                        .child(msg),
                                 )
                             }),
                     )
@@ -428,6 +476,18 @@ fn on_set_end(this: &mut MyApp, _: &SetEnd, _: &mut Window, cx: &mut Context<MyA
     if this.player.get_state() != PlayState::Stopped {
         this.update_range(cx, (None, Some(this.play_percent())));
     }
+    cx.notify();
+}
+fn on_vol_up(this: &mut MyApp, _: &VolumeUp, _: &mut Window, cx: &mut Context<MyApp>) {
+    let gain = this.player.get_gain() + 0.1;
+    this.player.set_gain(gain);
+    this.show_vol(cx);
+    cx.notify();
+}
+fn on_vol_down(this: &mut MyApp, _: &VolumeDown, _: &mut Window, cx: &mut Context<MyApp>) {
+    let gain = this.player.get_gain() - 0.1;
+    this.player.set_gain(gain);
+    this.show_vol(cx);
     cx.notify();
 }
 

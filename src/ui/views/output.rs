@@ -1,9 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use gpui::{
-    AppContext, ClickEvent, Context, Entity, ParentElement, Render, SharedString, Styled, Window,
-    div,
-};
+use gpui::{AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div};
 use gpui_component::{
     IndexPath, Sizable, StyledExt,
     button::{Button, ButtonVariants},
@@ -45,22 +42,44 @@ impl OutputView {
             None
         };
         let audio_select = cx.new(|cx| SelectState::new(rails, selected_index, window, cx));
-        let default = Self::abs_path_str("./output.mp4");
+
+        let path = params.read(cx).path.clone().unwrap();
+        let new_path = if let Some(stem) = path.file_stem() {
+            let mut new_name = stem.to_string_lossy().into_owned();
+            new_name.push_str("_edit");
+
+            if let Some(ext) = path.extension() {
+                new_name.push('.');
+                new_name.push_str(&ext.to_string_lossy());
+            }
+
+            path.with_file_name(new_name)
+        } else {
+            path.with_file_name("output.mp4")
+        };
+
+        let default = new_path
+            .absolutize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let input = cx.new(|cx| InputState::new(window, cx).default_value(default));
         Self {
             params,
-            input: cx.new(|cx| InputState::new(window, cx).default_value(default.clone())),
-            output_path: PathBuf::from(default.to_string()),
+            input,
+            output_path: new_path,
             audio_select,
             update_path: false,
         }
     }
 
-    fn abs_path_str(orignal_path: &str) -> String {
-        let p = Path::new(orignal_path);
-        let abs = p.absolutize().unwrap();
-        let abs_str = abs.to_string_lossy().into_owned();
-        abs_str
-    }
+    // fn abs_path_str(orignal_path: &str) -> String {
+    //     let p = Path::new(orignal_path);
+    //     let abs = p.absolutize().unwrap();
+    //     let abs_str = abs.to_string_lossy().into_owned();
+    //     abs_str
+    // }
 
     pub fn run_output(&self, cx: &mut gpui::App) {
         let param = self.params.read(cx);
@@ -109,8 +128,7 @@ impl Render for OutputView {
     ) -> impl gpui::IntoElement {
         if self.update_path {
             self.input.update(cx, |i, cx| {
-                let path =
-                    Self::abs_path_str(self.output_path.to_string_lossy().into_owned().as_str());
+                let path = self.output_path.to_string_lossy().into_owned();
                 i.set_value(path, w, cx);
             });
         }
