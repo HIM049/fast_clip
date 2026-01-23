@@ -3,8 +3,8 @@ use std::{path::PathBuf, time::Duration};
 use app_assets::icons::{self, rounded};
 use gpui::{
     AnyElement, AppContext, Context, Entity, ExternalPaths, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Render, Styled, Window, div,
-    prelude::FluentBuilder, rgba, svg,
+    InteractiveElement, IntoElement, ParentElement, Render, Styled, Task, Window, div,
+    prelude::FluentBuilder, px, rgba, svg,
 };
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
@@ -27,9 +27,9 @@ use crate::{
     },
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 enum MessageState {
-    Timer,
+    Timer(Task<()>),
     Seeking,
     None,
 }
@@ -44,6 +44,7 @@ pub struct MyApp {
     focus_handle: FocusHandle,
     settings: Entity<PlayerSettings>,
     message: Option<String>,
+    message_icon: Option<String>,
     message_mgr: MessageState,
 }
 
@@ -68,6 +69,7 @@ impl MyApp {
             focus_handle,
             settings: settings,
             message: None,
+            message_icon: None,
             message_mgr: MessageState::None,
         }
     }
@@ -163,28 +165,45 @@ impl MyApp {
         None
     }
 
-    fn show_message(&mut self, cx: &mut Context<Self>, message: String, dur: Option<Duration>) {
+    fn show_message(
+        &mut self,
+        cx: &mut Context<Self>,
+        message: String,
+        icon: Option<String>,
+        dur: Option<Duration>,
+    ) {
         if let Some(dur) = dur {
-            cx.spawn(async move |weak, cx| {
+            let t = cx.spawn(async move |weak, cx| {
                 cx.background_executor().timer(dur).await;
                 weak.update(cx, |this, _| {
                     this.message = None;
+                    this.message_icon = None;
                     this.message_mgr = MessageState::None;
                 })
                 .unwrap();
-            })
-            .detach();
-            self.message_mgr = MessageState::Timer;
+            });
+            self.message_mgr = MessageState::Timer(t);
         } else {
             self.message_mgr = MessageState::None;
         }
         self.message = Some(message);
+        self.message_icon = icon.into();
     }
 
     fn show_vol(&mut self, cx: &mut Context<Self>) {
+        let gain = self.player.get_gain();
+        let icon: String = if gain == 0.0 {
+            rounded::VOLUME_MUTE
+        } else if gain <= 0.6 {
+            rounded::VOLUME_DOWN
+        } else {
+            rounded::VOLUME_UP
+        }
+        .into();
         self.show_message(
             cx,
-            format!("Volume: {:.0}%", self.player.get_gain() * 100.),
+            format!("{:3.0}%", gain * 100.),
+            Some(icon),
             Some(Duration::from_secs(2)),
         );
     }
@@ -216,9 +235,12 @@ impl Render for MyApp {
                 cx.notify();
             });
         }
-        if self.message_mgr != MessageState::Timer {
+        if matches!(self.message_mgr, MessageState::None)
+            || matches!(self.message_mgr, MessageState::Seeking)
+        {
             if self.player.is_seeking() {
                 self.message = Some("Loading...".into());
+                self.message_icon = None;
                 self.message_mgr = MessageState::Seeking;
             } else {
                 self.message = None;
@@ -261,18 +283,7 @@ impl Render for MyApp {
                             .bg(bg_color)
                             .child(self.player.view(window))
                             .when_some(self.message.clone(), |this, msg| {
-                                this.child(
-                                    div()
-                                        .absolute()
-                                        .border_1()
-                                        .border_color(gpui::white())
-                                        .bg(gpui::black().alpha(0.7))
-                                        .rounded_sm()
-                                        .px_10()
-                                        .py_6()
-                                        .font_bold()
-                                        .child(msg),
-                                )
+                                this.child(message_box(msg, self.message_icon.clone()))
                             }),
                     )
                     .child(
@@ -433,6 +444,29 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         ),
                 ),
         )
+        .into_any_element()
+}
+
+fn message_box(msg: impl IntoElement, icon: Option<String>) -> AnyElement {
+    div()
+        .h_flex()
+        .justify_center()
+        .items_center()
+        .min_w(px(170.))
+        .absolute()
+        .border_1()
+        .border_color(gpui::white())
+        .bg(gpui::black().alpha(0.7))
+        .rounded_sm()
+        .px_10()
+        .py_6()
+        .font_bold()
+        .gap_2()
+        .when_some(icon, |this, icon| {
+            this.justify_between()
+                .child(svg().path(icon).size_8().text_color(gpui::white()))
+        })
+        .child(msg)
         .into_any_element()
 }
 
