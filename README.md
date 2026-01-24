@@ -24,15 +24,15 @@ A simple video editor, helps you create clips fastly.
   - [x] initiative seek？
   - [x] auto decoder selector
   - [x] keyboard binding
-  - [ ] code transform
-  - [ ] output compression
-  - [ ] multiple source
   - [x] multiple audio stream select
+  - [x] volume adjust
   - [ ] multiple audio stream mix
-  - [ ] framerate resample
-  - [ ] manual decoder selector
-  - [ ] volume adjust
 
 - version 2.0
+  - [ ] code transform
+  - [ ] output compression
+  - [ ] framerate resample
+  - [ ] manual decoder selector
+  - [ ] multiple source
   - [ ] clip base preview & output
   - [ ] clip base edit
