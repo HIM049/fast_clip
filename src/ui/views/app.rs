@@ -29,7 +29,7 @@ use crate::{
 
 #[derive(Debug)]
 enum MessageState {
-    Timer(Task<()>),
+    Timer { _task: Task<()> },
     Seeking,
     None,
 }
@@ -182,7 +182,7 @@ impl MyApp {
                 })
                 .unwrap();
             });
-            self.message_mgr = MessageState::Timer(t);
+            self.message_mgr = MessageState::Timer { _task: t };
         } else {
             self.message_mgr = MessageState::None;
         }
@@ -230,7 +230,6 @@ impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bg_color = cx.theme().background.darken(0.5);
         if self.player.get_state() != PlayState::Stopped {
-            cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
             });
