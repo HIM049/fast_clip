@@ -74,13 +74,6 @@ impl OutputView {
         }
     }
 
-    // fn abs_path_str(orignal_path: &str) -> String {
-    //     let p = Path::new(orignal_path);
-    //     let abs = p.absolutize().unwrap();
-    //     let abs_str = abs.to_string_lossy().into_owned();
-    //     abs_str
-    // }
-
     pub fn run_output(&self, cx: &mut gpui::App) {
         let param = self.params.read(cx);
         if !param.all_some() {
@@ -89,7 +82,7 @@ impl OutputView {
         let path = param.path.as_ref().unwrap();
         let v_ix = param.video_stream_ix.unwrap();
         let mut a_ix = param.audio_stream_ix.unwrap();
-        let range = param.selected_range.unwrap();
+        let range = param.selected_range.as_ref().unwrap();
         if let Some(ix) = self.audio_select.read(cx).selected_value() {
             a_ix = *ix;
         }

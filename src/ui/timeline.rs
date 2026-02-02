@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 use gpui::{
     AbsoluteLength, App, BorderStyle, Bounds, Corners, DefiniteLength, Element, ElementId, Hsla,
@@ -11,19 +11,17 @@ pub struct Timeline {
     percent: f32,
     origin_point: Point<Pixels>,
     on_click: Option<Arc<Box<dyn Fn(f32, &mut App) + 'static>>>,
-    range_start: Option<f32>,
-    range_end: Option<f32>,
+    range: Range<Option<f32>>,
 }
 
 impl Timeline {
-    pub fn new(id: impl Into<ElementId>, percent: f32, range: (Option<f32>, Option<f32>)) -> Self {
+    pub fn new(id: impl Into<ElementId>, percent: f32, range: Range<Option<f32>>) -> Self {
         Self {
             id: id.into(),
             percent: percent,
             origin_point: point(px(0.), px(0.)),
             on_click: None,
-            range_start: range.0,
-            range_end: range.1,
+            range,
         }
     }
 
@@ -134,7 +132,9 @@ impl Element for Timeline {
         ));
 
         // selected range
-        if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
+        if self.range.start.is_some() || self.range.end.is_some() {
+            let start = self.range.start.unwrap_or(0.);
+            let end = self.range.end.unwrap_or(1.);
             let point_a = (bounds.size.width * start).round();
             let point_b = (bounds.size.width * end).round();
 
@@ -184,12 +184,12 @@ impl Element for Timeline {
         }
 
         // draw range start point
-        if let Some(start) = self.range_start {
+        if let Some(start) = self.range.start {
             let point = (bounds.size.width * start).round() - px(1.);
             paint_dashline(window, point, self.origin_point.y - px(7.5), point_color);
         }
         // draw range end point
-        if let Some(end) = self.range_end {
+        if let Some(end) = self.range.end {
             let point = (bounds.size.width * end).round();
             paint_dashline(window, point, self.origin_point.y - px(7.5), point_color);
         }

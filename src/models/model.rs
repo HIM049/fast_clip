@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ops::Range, path::PathBuf};
 
 use gpui::{App, WindowHandle};
 use gpui_component::Root;
@@ -39,7 +39,7 @@ pub struct OutputParams {
     pub path: Option<PathBuf>,
     pub video_stream_ix: Option<usize>,
     pub audio_stream_ix: Option<usize>,
-    pub selected_range: Option<(f64, f64)>,
+    pub selected_range: Option<Range<f64>>,
     pub audio_rails: Option<Vec<AudioRail>>,
 }
 

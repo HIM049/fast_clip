@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::{ops::Range, path::PathBuf, time::Duration};
 
 use app_assets::icons::{self, rounded};
 use gpui::{
@@ -40,7 +40,7 @@ pub struct MyApp {
     output_parames: Entity<OutputParams>,
     player: Player,
     // here selection_range is percentage of progress
-    selection_range: (Option<f32>, Option<f32>),
+    selection_range: Range<Option<f32>>,
     focus_handle: FocusHandle,
     settings: Entity<PlayerSettings>,
     message: Option<String>,
@@ -65,7 +65,10 @@ impl MyApp {
             size: size_entity.clone(),
             output_parames: param_entity.clone(),
             player: Player::new(size_entity, param_entity),
-            selection_range: (None, None),
+            selection_range: Range {
+                start: None,
+                end: None,
+            },
             focus_handle,
             settings: settings,
             message: None,
@@ -97,7 +100,10 @@ impl MyApp {
 
     /// close file and reset player
     pub fn close_file(&mut self, cx: &mut Context<Self>) {
-        self.selection_range = (None, None);
+        self.selection_range = Range {
+            start: None,
+            end: None,
+        };
         self.output_parames.update(cx, |p, _| {
             p.selected_range = None;
         });
@@ -126,43 +132,39 @@ impl MyApp {
         self.player.play_percentage().unwrap_or(0.)
     }
 
-    fn range_time(&self) -> Option<(f64, f64)> {
-        if let (Some(dur), Some(a), Some(b)) = (
-            self.player.duration_sec(),
-            self.selection_range.0,
-            self.selection_range.1,
-        ) {
-            let at = dur * a as f64;
-            let bt = dur * b as f64;
-            Some((at, bt))
+    fn active_range(&self) -> Option<Range<f32>> {
+        if self.selection_range.start.is_some() || self.selection_range.end.is_some() {
+            let start = self.selection_range.start.unwrap_or(0.);
+            let end = self.selection_range.end.unwrap_or(1.);
+            Some(Range { start, end })
         } else {
             None
         }
     }
 
+    /// calc selected range as sec
+    fn range_time(&self) -> Option<Range<f64>> {
+        if let (Some(dur), Some(pct_range)) = (self.player.duration_sec(), self.active_range())
+            && pct_range.start < pct_range.end
+        {
+            let start = dur * pct_range.start as f64;
+            let end = dur * pct_range.end as f64;
+            return Some(Range { start, end });
+        }
+        None
+    }
+
     /// set and update range
     fn update_range(&mut self, cx: &mut Context<Self>, percent_range: (Option<f32>, Option<f32>)) {
         if let Some(a) = percent_range.0 {
-            self.selection_range.0 = Some(a);
+            self.selection_range.start = Some(a);
         }
         if let Some(b) = percent_range.1 {
-            self.selection_range.1 = Some(b);
+            self.selection_range.end = Some(b);
         }
         self.output_parames.update(cx, |p, _| {
-            p.selected_range = self.get_sec_range();
+            p.selected_range = self.range_time();
         });
-    }
-
-    /// calc selected range as sec
-    fn get_sec_range(&self) -> Option<(f64, f64)> {
-        if let (Some(a), Some(b)) = (self.selection_range.0, self.selection_range.1) {
-            if a < b
-                && let Some(dur) = self.player.duration_sec()
-            {
-                return Some((a as f64 * dur, b as f64 * dur));
-            }
-        }
-        None
     }
 
     fn show_message(
@@ -230,6 +232,7 @@ impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bg_color = cx.theme().background.darken(0.5);
         if self.player.get_state() != PlayState::Stopped {
+            cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
             });
@@ -303,16 +306,21 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
         .border_1()
         .border_color(cx.theme().border)
         .bg(bg_color)
-        .child(div().flex().w_full().child(
-            Timeline::new("timeline", this.play_percent(), this.selection_range).on_click(
-                move |pct, cx| {
+        .child(
+            div().flex().w_full().child(
+                Timeline::new(
+                    "timeline",
+                    this.play_percent(),
+                    this.selection_range.clone(),
+                )
+                .on_click(move |pct, cx| {
                     weak.update(cx, |this, _| {
                         this.player.seek_player(|_, dur| dur * pct as f64);
                     })
                     .unwrap();
-                },
+                }),
             ),
-        ))
+        )
         .child(
             div()
                 .h_flex()
@@ -367,7 +375,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                             RoundButton::new("to-beginning")
                                 .icon_path(icons::rounded::KEYBOARD_TAB_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
-                                    if let Some(start) = this.selection_range.0 {
+                                    if let Some(start) = this.selection_range.start {
                                         this.player.seek_player(|_, dur| dur * start as f64);
                                     }
                                     cx.notify();
@@ -377,7 +385,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                             RoundButton::new("to-end")
                                 .icon_path(icons::rounded::KEYBOARD_TAB_R_FILLED)
                                 .on_click(cx.listener(|this, _, _, cx| {
-                                    if let Some(end) = this.selection_range.1 {
+                                    if let Some(end) = this.selection_range.end {
                                         this.player.seek_player(|_, dur| dur * end as f64);
                                     }
                                     cx.notify();
@@ -403,8 +411,8 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .when_some(this.range_time(), |this, time| {
                             this.child(Chip::new().border().label(format!(
                                 "A {} -> B {}",
-                                format_sec(time.0),
-                                format_sec(time.1)
+                                format_sec(time.start),
+                                format_sec(time.end)
                             )))
                         })
                         .when_else(
@@ -429,7 +437,9 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                                             .text_color(gpui::white())
                                                             .size_5(),
                                                     )
-                                                    .child(format_sec((time.1 - time.0).max(0.))),
+                                                    .child(format_sec(
+                                                        (time.start - time.end).max(0.),
+                                                    )),
                                             )
                                         })
                                         .child(Chip::new().border().bold().label(format!(

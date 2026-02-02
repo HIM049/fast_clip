@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ops::Range, path::PathBuf};
 
 use anyhow::anyhow;
 
@@ -7,7 +7,7 @@ pub fn output(
     out_path: &PathBuf,
     target_video_ix: usize,
     target_audio_ix: usize,
-    time_range: (f64, f64),
+    time_range: &Range<f64>,
 ) -> anyhow::Result<()> {
     println!(
         "DEBUG: run output, path: {:?}, stream_ix: {}, time_range: {:?}",
@@ -15,7 +15,7 @@ pub fn output(
     );
     // open source & seek to start point
     let mut input = ffmpeg_next::format::input(&path)?;
-    let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * time_range.0) as i64;
+    let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * time_range.start) as i64;
     input.seek(ts, ..ts)?;
 
     let mut output = ffmpeg_next::format::output(out_path)?;
@@ -61,7 +61,7 @@ pub fn output(
         let frame_time = pkt_pts as f64 / stream.time_base().denominator() as f64;
         let this_ix = stream.index();
         // when video frame out the range
-        if frame_time > time_range.1 && this_ix == target_video_ix {
+        if frame_time > time_range.end && this_ix == target_video_ix {
             break;
         }
         // if not target stream
