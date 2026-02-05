@@ -424,6 +424,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                         .rounded_full()
                                         .bg(rgba(0xf0e59a26))
                                         .when_some(this.range_time(), |this, time| {
+                                            println!("{:?}", time);
                                             this.child(
                                                 div()
                                                     .h_flex()
@@ -438,7 +439,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                                             .size_5(),
                                                     )
                                                     .child(format_sec(
-                                                        (time.start - time.end).max(0.),
+                                                        (time.end - time.start).max(0.),
                                                     )),
                                             )
                                         })
