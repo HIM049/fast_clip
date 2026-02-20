@@ -55,18 +55,28 @@ pub fn output(
     let mut v_offset_dts: Option<i64> = None;
     let mut a_offset_pts: Option<i64> = None;
     let mut a_offset_dts: Option<i64> = None;
+
+    let mut output_state = (false, false);
     for (stream, mut packet) in input.packets() {
         let pkt_pts = packet.pts().unwrap_or(0);
         let pkt_dts = packet.dts().unwrap_or(pkt_pts);
         let frame_time = pkt_pts as f64 / stream.time_base().denominator() as f64;
         let this_ix = stream.index();
         // when video frame out the range
-        if frame_time > time_range.end && this_ix == target_video_ix {
-            break;
+        if this_ix == target_video_ix && frame_time > time_range.end {
+            output_state.0 = true;
+        } else if this_ix == target_audio_ix && frame_time > time_range.end {
+            output_state.1 = true;
         }
-        // if not target stream
-        if this_ix != target_audio_ix && this_ix != target_video_ix {
+        if this_ix != target_video_ix && this_ix != target_audio_ix {
             continue;
+        }
+        println!(
+            "OutputState {:?}, frame_time {}, target_time {}",
+            output_state, frame_time, time_range.end
+        );
+        if output_state == (true, true) {
+            break;
         }
         if this_ix == target_video_ix {
             if v_offset_pts.is_none() {
