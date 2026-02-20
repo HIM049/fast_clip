@@ -424,7 +424,6 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                         .rounded_full()
                                         .bg(rgba(0xf0e59a26))
                                         .when_some(this.range_time(), |this, time| {
-                                            println!("{:?}", time);
                                             this.child(
                                                 div()
                                                     .h_flex()

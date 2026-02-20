@@ -135,8 +135,8 @@ impl Element for Timeline {
         if self.range.start.is_some() || self.range.end.is_some() {
             let start = self.range.start.unwrap_or(0.);
             let end = self.range.end.unwrap_or(1.);
-            let point_a = (bounds.size.width * start).round();
-            let point_b = (bounds.size.width * end).round();
+            let point_a = (bounds.size.width * start).max(bounds.origin.x);
+            let point_b = (bounds.size.width + px(1.)) * end;
 
             let divide_point = if indi_x > point_b {
                 // indicator in range
@@ -153,7 +153,7 @@ impl Element for Timeline {
                 // unplay range
                 window.paint_quad(quad(
                     Bounds {
-                        origin: point(point_a, self.origin_point.y),
+                        origin: point(point_a.round(), self.origin_point.y),
                         size: Size {
                             width: point_b - point_a,
                             height: base_h,
