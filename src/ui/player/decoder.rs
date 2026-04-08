@@ -397,8 +397,11 @@ impl VideoDecoder {
 
                 // drop extra frames when seek
                 if let Some(to) = seeking_to {
-                    let target = (to * time_base.denominator() as f64) as i64;
-                    let audio_target = (to * audio_time_base.denominator() as f64) as i64;
+                    let target =
+                        (to * time_base.denominator() as f64 / time_base.numerator() as f64) as i64;
+                    let audio_target = (to * audio_time_base.denominator() as f64
+                        / audio_time_base.numerator() as f64)
+                        as i64;
                     if !seek_state.0 {
                         let result = handle_video(
                             &mut video_pkt_queue,
@@ -502,8 +505,6 @@ fn handle_video(
         }
 
         if decoder.receive_frame(decoded_frame).is_ok() {
-            scaler.run(decoded_frame, scaled_frame).unwrap();
-
             if let Some(to) = seek_to {
                 if decoded_frame.pts().unwrap_or(0) < to {
                     return None;
@@ -511,6 +512,8 @@ fn handle_video(
                     reseeked = true;
                 }
             }
+
+            scaler.run(decoded_frame, scaled_frame).unwrap();
 
             return scale_frame(
                 scaled_frame,

@@ -297,7 +297,7 @@ impl Player {
             return None;
         };
         let time_base = decoder.get_timebase();
-        Some(pts as f64 / time_base.denominator() as f64)
+        Some(pts as f64 * time_base.numerator() as f64 / time_base.denominator() as f64)
     }
 
     /// compare frame and decision action
@@ -329,14 +329,18 @@ impl Player {
         }
 
         let play_time = self.current_playtime();
-        if (play_time - frame_time).abs() <= 0.3 {
-            if frame_time <= play_time {
-                FrameAction::Render
-            } else {
-                FrameAction::Wait
-            }
+        if frame_time > play_time + 0.3 {
+            // frame is too future, wait
+            FrameAction::Wait
+        } else if frame_time < play_time - 0.3 {
+            // frame is too old, drop
+            FrameAction::Drop
+        } else if frame_time <= play_time {
+            // frame is in window and should render
+            FrameAction::Render
         } else {
-            return FrameAction::Drop;
+            // frame is in window but just a bit ahead
+            FrameAction::Wait
         }
     }
 
