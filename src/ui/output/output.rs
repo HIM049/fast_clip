@@ -51,10 +51,8 @@ pub fn output(
         .ok_or(anyhow!("failed to get timebase"))?
         .time_base();
 
-    let mut v_offset_pts: Option<i64> = None;
-    let mut v_offset_dts: Option<i64> = None;
-    let mut a_offset_pts: Option<i64> = None;
-    let mut a_offset_dts: Option<i64> = None;
+    let mut v_offset: Option<i64> = None;
+    let mut a_offset: Option<i64> = None;
 
     let mut output_state = (false, false);
     for (stream, mut packet) in input.packets() {
@@ -62,41 +60,49 @@ pub fn output(
         let pkt_dts = packet.dts().unwrap_or(pkt_pts);
         let frame_time = pkt_pts as f64 / stream.time_base().denominator() as f64;
         let this_ix = stream.index();
+
         // when video frame out the range
         if this_ix == target_video_ix && frame_time > time_range.end {
             output_state.0 = true;
         } else if this_ix == target_audio_ix && frame_time > time_range.end {
             output_state.1 = true;
         }
+
         if this_ix != target_video_ix && this_ix != target_audio_ix {
             continue;
         }
-        println!(
-            "OutputState {:?}, frame_time {}, target_time {}",
-            output_state, frame_time, time_range.end
-        );
+
         if output_state == (true, true) {
             break;
         }
+
         if this_ix == target_video_ix {
-            if v_offset_pts.is_none() {
-                v_offset_pts = packet.pts();
-                v_offset_dts = packet.dts();
+            if v_offset.is_none() {
+                // use DTS as the base offset
+                v_offset = Some(pkt_dts);
             }
-            packet.set_pts(Some(pkt_pts - v_offset_pts.unwrap()));
-            packet.set_dts(Some(pkt_dts - v_offset_dts.unwrap()));
+            let offset = v_offset.unwrap();
+            packet.set_pts(Some(pkt_pts - offset));
+            packet.set_dts(Some(pkt_dts - offset));
             packet.set_stream(video_out_ix);
             packet.rescale_ts(stream.time_base(), video_out_tb);
         } else {
-            if a_offset_pts.is_none() {
-                a_offset_pts = packet.pts();
-                a_offset_dts = packet.dts();
+            if a_offset.is_none() {
+                a_offset = Some(pkt_dts);
             }
-            packet.set_pts(Some(pkt_pts - a_offset_pts.unwrap()));
-            packet.set_dts(Some(pkt_dts - a_offset_dts.unwrap()));
+            let offset = a_offset.unwrap();
+            packet.set_pts(Some(pkt_pts - offset));
+            packet.set_dts(Some(pkt_dts - offset));
             packet.set_stream(audio_out_ix);
             packet.rescale_ts(stream.time_base(), audio_out_tb);
         }
+
+        if let (Some(p), Some(d)) = (packet.pts(), packet.dts()) {
+            if p < d {
+                packet.set_pts(Some(d));
+            }
+        }
+
         packet.set_position(-1);
         packet.write_interleaved(&mut output)?;
     }
