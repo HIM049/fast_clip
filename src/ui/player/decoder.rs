@@ -343,6 +343,10 @@ impl VideoDecoder {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
                             }
+
+                            is_read_finished = false;
+                            seeking_to = Some(t);
+                            seek_state = (false, false);
                             need_flash = true;
                         }
                         DecoderEvent::NextKey(t) => {
@@ -351,6 +355,10 @@ impl VideoDecoder {
                                 println!("DEBUG: failed when seek: {}", e);
                                 continue;
                             }
+
+                            is_read_finished = false;
+                            seeking_to = Some(t);
+                            seek_state = (false, false);
                             need_flash = true;
                         }
                     }

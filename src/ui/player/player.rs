@@ -196,20 +196,32 @@ impl Player {
     pub fn last_key(&mut self) {
         self.timer.stop();
         let ct = self.timer.current_time_sec();
+        let target = (ct - 0.1).max(0.0);
 
         if let Some(d) = self.decoder.as_mut() {
-            d.set_event(DecoderEvent::LastKey(ct));
+            d.set_event(DecoderEvent::LastKey(target));
         }
+        self.handleing_time = Some(target);
+        self.is_seeking = true;
+        self.frame_buf = None;
+        self.consumer.clear();
+        self.audio_player.pause().unwrap();
     }
 
     /// find and seek to next key frame
     pub fn next_key(&mut self) {
         self.timer.stop();
         let ct = self.timer.current_time_sec();
+        let target = ct + 0.1;
 
         if let Some(d) = self.decoder.as_mut() {
-            d.set_event(DecoderEvent::NextKey(ct));
+            d.set_event(DecoderEvent::NextKey(target));
         }
+        self.handleing_time = Some(target);
+        self.is_seeking = true;
+        self.frame_buf = None;
+        self.consumer.clear();
+        self.audio_player.pause().unwrap();
     }
 
     /// seek player with update fn
