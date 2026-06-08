@@ -2,13 +2,19 @@ use gpui::{Action, App, Entity, Menu, MenuItem, SharedString, actions};
 use gpui_component::{Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
+use crate::config::{self as config_store, AppConfig, Language};
+
 actions!(menu, [Quit, About, Open, Close, Output, OpenPlayerSetting]);
 
 #[derive(Action, Clone, PartialEq, Eq)]
 #[action(namespace = menu, no_json)]
 pub struct SelectLocale(pub SharedString);
 
-pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
+pub fn init(
+    title: impl Into<SharedString>,
+    config: Entity<AppConfig>,
+    cx: &mut App,
+) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
     let title: SharedString = title.into();
     update_app_menu(title.clone(), app_menu_bar.clone(), cx);
@@ -16,8 +22,18 @@ pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> 
     cx.on_action({
         let title = title.clone();
         let app_menu_bar = app_menu_bar.clone();
+        let config = config.clone();
         move |s: &SelectLocale, cx: &mut App| {
-            rust_i18n::set_locale(&s.0.as_str());
+            let locale = s.0.as_str();
+            rust_i18n::set_locale(locale);
+            if let Some(language) = Language::from_locale(locale) {
+                config.update(cx, |app_config, _| {
+                    app_config.language = language;
+                    if let Err(err) = config_store::save(app_config) {
+                        println!("failed to save config: {}", err);
+                    }
+                });
+            }
             update_app_menu(title.clone(), app_menu_bar.clone(), cx);
         }
     });
@@ -75,8 +91,10 @@ fn language_menu() -> MenuItem {
     MenuItem::Submenu(Menu {
         name: SharedString::from(t!("menu.language")),
         items: vec![
-            MenuItem::action("English", SelectLocale("en".into())).checked(locale == "en"),
-            MenuItem::action("简体中文", SelectLocale("zh-CN".into())).checked(locale == "zh-CN"),
+            MenuItem::action("English", SelectLocale(Language::En.as_locale().into()))
+                .checked(locale == Language::En.as_locale()),
+            MenuItem::action("简体中文", SelectLocale(Language::ZhCn.as_locale().into()))
+                .checked(locale == Language::ZhCn.as_locale()),
         ],
     })
 }

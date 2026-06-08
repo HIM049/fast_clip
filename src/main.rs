@@ -6,6 +6,7 @@ use gpui_component::*;
 
 use crate::{
     components::app_menu::{About, Open, Output, Quit},
+    config::AppConfig,
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
@@ -14,6 +15,7 @@ use crate::{
 };
 use reqwest_client;
 mod components;
+mod config;
 mod models;
 mod ui;
 
@@ -35,6 +37,9 @@ fn main() {
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
+        let config = config::load();
+        rust_i18n::set_locale(&config.language.as_locale());
+        let config_entity: Entity<AppConfig> = cx.new(|_| config);
         init_theme(cx);
 
         let size_entity = cx.new(|_cx| PlayerSize::new());
@@ -68,7 +73,14 @@ fn main() {
                 ..Default::default()
             },
             |window, cx| {
-                let view = cx.new(|cx| MyApp::new(cx, size_entity, params_entity.clone()));
+                let view = cx.new(|cx| {
+                    MyApp::new(
+                        cx,
+                        size_entity,
+                        params_entity.clone(),
+                        config_entity.clone(),
+                    )
+                });
                 cx.new(|cx| Root::new(view, window, cx))
             },
         )
