@@ -8,6 +8,7 @@ use gpui_component::{
     label::Label,
     select::{Select, SelectState},
 };
+use rust_i18n::t;
 
 use crate::ui::player::model::AudioRail;
 
@@ -93,7 +94,7 @@ impl Render for PlayerSettingsView {
             .child(
                 div().flex().v_flex().gap_3().child(
                     div()
-                        .child(Label::new("Audio Rail"))
+                        .child(Label::new(t!("ui.autio-rail")))
                         .child(Select::new(&self.audio_select)),
                 ),
             )

@@ -33,7 +33,7 @@ fn main() {
     )
     .unwrap();
 
-    let app = Application::new().with_assets(app_assets::Assets);
+    let app = gpui_platform::application().with_assets(app_assets::Assets);
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
@@ -110,12 +110,10 @@ fn main() {
                 if let Some(paths) = r {
                     println!("DEBUG: got some path: {:?}", paths);
                     let path = paths[0].clone();
-                    params
-                        .update(cx, |p, cx| {
-                            p.path = Some(path);
-                            cx.notify();
-                        })
-                        .unwrap();
+                    params.update(cx, |p, cx| {
+                        p.path = Some(path);
+                        cx.notify();
+                    });
                 }
             })
             .detach();

@@ -154,7 +154,7 @@ impl Render for OutputView {
                     )
                     .child(
                         div()
-                            .child(Label::new("Audio Rail"))
+                            .child(Label::new(t!("ui.autio-rail")))
                             .child(Select::new(&self.audio_select)),
                     )
                     .child(

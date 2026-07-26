@@ -50,3 +50,7 @@ ui.cancel:
 ui.cp-stream:
   en: "Copy Stream"
   zh-CN: "复制流"
+
+ui.autio-rail:
+  en: "Audio Rail"
+  zh-CN: "音频轨道"

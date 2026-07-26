@@ -15,16 +15,18 @@ members = [
 edition = "2024"
 
 [workspace.dependencies]
-anyhow = "1.0.100"
+anyhow = "1.0.104"
 gpui = { git = "https://github.com/zed-industries/zed" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit"] }
 log = "0.4"
-reqwest = { version = "0.12.25", features = ["json", "blocking", "rustls-tls", "stream", "rustls-tls-native-roots"] }
-serde = "1.0.228"
-serde_json = "1.0.145"
+reqwest = { version = "0.12.28", features = ["json", "blocking", "rustls-tls", "stream", "rustls-tls-native-roots"] }
+serde = "1.0.229"
+serde_json = "1.0.151"
 
 [dependencies]
 anyhow.workspace = true
 gpui.workspace = true
+gpui_platform.workspace = true
 gpui-component = { git = "https://github.com/longbridge/gpui-component.git" }
 gpui-component-assets = { git = "https://github.com/longbridge/gpui-component.git" }
 reqwest.workspace = true
@@ -33,12 +35,12 @@ reqwest_client = { path = "crates/reqwest_client" }
 app_assets = { path = "crates/app_assets" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-smallvec = "1.15.1"
-image = "0.25.9"
-ffmpeg-next = "8.0.0"
+smallvec = "1.15.2"
+image = "0.25.10"
+ffmpeg-next = "8.1.0"
 async-channel = "2.5.0"
-ringbuf = "0.4.9"
-cpal = "0.17.1"
+ringbuf = "0.4.8"
+cpal = "0.17.3"
 rust-i18n = "3.1.5"
 path-absolutize = "3.1.1"
 atomic_float = "1.1.0"

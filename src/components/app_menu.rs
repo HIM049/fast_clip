@@ -1,5 +1,5 @@
-use gpui::{Action, App, Entity, Menu, MenuItem, SharedString, actions};
-use gpui_component::{Theme, menu::AppMenuBar};
+use gpui::{Action, App, Entity, Menu, MenuItem, OwnedMenu, OwnedMenuItem, SharedString, actions};
+use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
 use crate::config::{self as config_store, AppConfig, Language};
@@ -53,33 +53,45 @@ pub fn init(
 
 fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuBar>, cx: &mut App) {
     // let mode = cx.theme().mode;
-    cx.set_menus(vec![
+
+    let menus = vec![
         Menu {
             name: title.into(),
+            disabled: false,
             items: vec![
                 MenuItem::action(t!("menu.about"), About),
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.quit"), Quit),
             ],
-        },
+        }
+        .owned(),
         Menu {
             name: SharedString::from(t!("menu.file")),
+            disabled: false,
             items: vec![
                 MenuItem::action(t!("menu.open"), Open),
                 MenuItem::action(t!("menu.close"), Close),
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.output"), Output),
             ],
-        },
+        }
+        .owned(),
         Menu {
             name: SharedString::from(t!("menu.player")),
+            disabled: false,
             items: vec![MenuItem::action(t!("menu.audio"), OpenPlayerSetting)],
-        },
+        }
+        .owned(),
         Menu {
             name: SharedString::from(t!("menu.settings")),
+            disabled: false,
             items: vec![language_menu()],
-        },
-    ]);
+        }
+        .owned(),
+    ];
+
+    GlobalState::global_mut(cx).set_app_menus(menus);
+    // cx.set_menus();
 
     app_menu_bar.update(cx, |menu_bar, cx| {
         menu_bar.reload(cx);
@@ -90,6 +102,7 @@ fn language_menu() -> MenuItem {
     let locale = rust_i18n::locale().to_string();
     MenuItem::Submenu(Menu {
         name: SharedString::from(t!("menu.language")),
+        disabled: false,
         items: vec![
             MenuItem::action("English", SelectLocale(Language::En.as_locale().into()))
                 .checked(locale == Language::En.as_locale()),

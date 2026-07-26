@@ -4,7 +4,6 @@ use gpui::{
     Bounds, Corners, Element, Entity, IntoElement, LayoutId, Pixels, Point, RenderImage, Size,
     Style, px, relative,
 };
-use gpui_component::PixelsExt;
 
 use crate::ui::player::size::PlayerSize;
 
@@ -93,7 +92,7 @@ impl Element for Viewer {
             ),
         );
         window
-            .paint_image(b, Corners::all(px(0.0)), self.frame.clone(), 0, false)
+            .paint_image(b, b, Corners::all(px(0.0)), self.frame.clone(), 0, false)
             .unwrap();
     }
 }

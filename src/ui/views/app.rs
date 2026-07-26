@@ -56,7 +56,7 @@ impl MyApp {
         param_entity: Entity<OutputParams>,
         config: Entity<AppConfig>,
     ) -> Self {
-        let title_bar = cx.new(|cx| AppTitleBar::new("Fast Clip", config, cx));
+        let title_bar = cx.new(|cx| AppTitleBar::new("FastClip", config, cx));
         let focus_handle = cx.focus_handle();
         let settings = cx.new(|_| PlayerSettings::default());
         Self::listen_open(&param_entity, cx);
