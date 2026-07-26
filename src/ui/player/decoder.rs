@@ -1,6 +1,8 @@
 use std::{
     collections::VecDeque,
+    ffi::c_void,
     path::PathBuf,
+    ptr,
     sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
@@ -10,6 +12,11 @@ use anyhow::anyhow;
 use ffmpeg_next::{
     ChannelLayout, Codec, Packet, Rational,
     decoder::{self},
+    ffi::{
+        AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVCodecContext, AVHWDeviceType, AVPixelFormat,
+        av_codec_is_decoder, av_codec_iterate, av_frame_copy_props, av_frame_unref,
+        av_hwdevice_ctx_create, av_hwframe_transfer_data, avcodec_get_hw_config,
+    },
     format::{self, context, sample::Type},
     frame::{Audio, Video},
     software::{
@@ -53,11 +60,205 @@ pub struct ResamplerParams {
     target_rate: u32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct HwSelection {
+    device_type: AVHWDeviceType,
+    pixel_format: AVPixelFormat,
+}
+
+unsafe extern "C" fn choose_hardware_format(
+    context: *mut AVCodecContext,
+    formats: *const AVPixelFormat,
+) -> AVPixelFormat {
+    let selection = unsafe { ((*context).opaque as *const HwSelection).as_ref() };
+    let Some(selection) = selection else {
+        return AVPixelFormat::AV_PIX_FMT_NONE;
+    };
+
+    let mut current = formats;
+    while unsafe { *current } != AVPixelFormat::AV_PIX_FMT_NONE {
+        if unsafe { *current } == selection.pixel_format {
+            return selection.pixel_format;
+        }
+        current = unsafe { current.add(1) };
+    }
+
+    AVPixelFormat::AV_PIX_FMT_NONE
+}
+
+fn hardware_configurations(codec: Codec) -> Vec<HwSelection> {
+    println!("[DEBUG-hwprobe] codec={}", codec.name());
+    let codec = unsafe { codec.as_ptr() };
+    let mut selections = Vec::new();
+    let mut index = 0;
+
+    loop {
+        let config = unsafe { avcodec_get_hw_config(codec, index) };
+        if config.is_null() {
+            println!("[DEBUG-hwprobe] no more hardware configurations");
+            return selections;
+        }
+
+        let config = unsafe { &*config };
+        let supports_device_context =
+            config.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX as i32 != 0;
+
+        println!(
+            "[DEBUG-hwprobe] config index={index}, device={:?}, pixel_format={:?}, methods={:#x}, hw_device_ctx={supports_device_context}",
+            config.device_type, config.pix_fmt, config.methods
+        );
+
+        if supports_device_context {
+            selections.push(HwSelection {
+                device_type: config.device_type,
+                pixel_format: config.pix_fmt,
+            });
+        }
+
+        index += 1;
+    }
+}
+
+fn hardware_priority(device_type: AVHWDeviceType) -> u8 {
+    match device_type {
+        AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA => 0,
+        AVHWDeviceType::AV_HWDEVICE_TYPE_D3D11VA => 1,
+        AVHWDeviceType::AV_HWDEVICE_TYPE_QSV => 2,
+        AVHWDeviceType::AV_HWDEVICE_TYPE_DXVA2 => 3,
+        _ => 4,
+    }
+}
+
+fn decoder_implementation_priority(codec: Codec) -> u8 {
+    let name = codec.name();
+    if name.ends_with("_cuvid") || name.ends_with("_nvdec") {
+        0
+    } else {
+        1
+    }
+}
+
+fn find_hardware_decoders(codec_id: ffmpeg_next::codec::Id) -> Vec<(Codec, HwSelection)> {
+    let mut opaque = ptr::null_mut();
+    let mut candidates: Vec<(Codec, HwSelection)> = Vec::new();
+
+    loop {
+        let codec = unsafe { av_codec_iterate(&mut opaque) };
+        if codec.is_null() {
+            candidates.sort_by_key(|(codec, selection)| {
+                (
+                    hardware_priority(selection.device_type),
+                    decoder_implementation_priority(*codec),
+                )
+            });
+            println!(
+                "[DEBUG-hwprobe] found {} hardware candidate(s) for {codec_id:?}",
+                candidates.len()
+            );
+            return candidates;
+        }
+
+        if unsafe { av_codec_is_decoder(codec) } == 0 {
+            continue;
+        }
+
+        let codec = unsafe { Codec::wrap(codec) };
+        if codec.id() != codec_id {
+            continue;
+        }
+
+        println!(
+            "[DEBUG-hwprobe] checking decoder implementation: {}",
+            codec.name()
+        );
+        for selection in hardware_configurations(codec) {
+            candidates.push((codec, selection));
+        }
+    }
+}
+
+fn try_open_hardware_decoder(
+    parameters: &ffmpeg_next::codec::Parameters,
+    codec: Codec,
+    selection: HwSelection,
+) -> Option<(decoder::Video, Box<HwSelection>)> {
+    println!(
+        "[DEBUG-hwprobe] trying decoder={}, device={:?}, pixel_format={:?}",
+        codec.name(),
+        selection.device_type,
+        selection.pixel_format
+    );
+
+    let mut selection = Box::new(selection);
+    let mut context =
+        ffmpeg_next::codec::context::Context::from_parameters(parameters.clone()).ok()?;
+    let context_ptr = unsafe { context.as_mut_ptr() };
+    let mut device_context = ptr::null_mut();
+    let result = unsafe {
+        av_hwdevice_ctx_create(
+            &mut device_context,
+            selection.device_type,
+            ptr::null(),
+            ptr::null_mut(),
+            0,
+        )
+    };
+
+    if result < 0 {
+        println!(
+            "[DEBUG-hwprobe] device creation failed for {:?}: {result}",
+            selection.device_type
+        );
+        return None;
+    }
+
+    unsafe {
+        (*context_ptr).hw_device_ctx = device_context;
+        (*context_ptr).opaque = (&mut *selection as *mut HwSelection).cast::<c_void>();
+        (*context_ptr).get_format = Some(choose_hardware_format);
+    }
+
+    match context
+        .decoder()
+        .open_as(codec)
+        .and_then(|opened| opened.video())
+    {
+        Ok(decoder) => Some((decoder, selection)),
+        Err(error) => {
+            println!("[DEBUG-hwprobe] hardware open failed: {error}");
+            None
+        }
+    }
+}
+
+fn open_video_decoder(
+    parameters: ffmpeg_next::codec::Parameters,
+) -> anyhow::Result<(decoder::Video, Option<Box<HwSelection>>)> {
+    let codec_id = parameters.id();
+    let software_codec = decoder::find(codec_id).ok_or(anyhow!("cannot find video decoder"))?;
+
+    for (codec, selection) in find_hardware_decoders(codec_id) {
+        if let Some((decoder, selection)) = try_open_hardware_decoder(&parameters, codec, selection)
+        {
+            println!(
+                "DEBUG: video decoder: hardware enabled, device: {:?}, pixel format: {:?}",
+                selection.device_type, selection.pixel_format
+            );
+            return Ok((decoder, Some(selection)));
+        }
+    }
+
+    println!("DEBUG: video decoder: using software decoder");
+    let context = ffmpeg_next::codec::context::Context::from_parameters(parameters)?;
+    Ok((context.decoder().open_as(software_codec)?.video()?, None))
+}
+
 pub struct VideoDecoder {
     input: Option<context::Input>,
     video_stream_ix: usize,
     audio_stream_ix: usize,
     v_decoder: Option<decoder::Video>,
+    hw_selection: Option<Box<HwSelection>>,
     a_decoder: Option<decoder::Audio>,
     time_base: Rational,
     audio_time_base: Rational,
@@ -149,16 +350,16 @@ impl VideoDecoder {
             });
         }
 
-        let d =
-            ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?.decoder();
+        let (v_decoder, hw_selection) = open_video_decoder(v_stream.parameters())?;
 
-        let v_decoder = if let Some(codec) = find_best_codec(v_stream.parameters().id()) {
-            println!("DEBUG: decoder: useing codec: {}", codec.name());
-            d.open_as(codec)?.video()?
-        } else {
-            println!("DEBUG: decoder: failed to find codec");
-            d.video()?
-        };
+        // Legacy vendor-suffixed decoder selection is intentionally disabled.
+        // It conflicts with the generic decoder + D3D11VA device-context path above.
+        // let d = ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?.decoder();
+        // let v_decoder = if let Some(codec) = find_best_codec(v_stream.parameters().id()) {
+        //     d.open_as(codec)?.video()?
+        // } else {
+        //     d.video()?
+        // };
 
         let a_decoder =
             ffmpeg_next::codec::context::Context::from_parameters(a_stream.parameters())?
@@ -192,6 +393,7 @@ impl VideoDecoder {
             video_stream_ix: v_stream.index(),
             audio_stream_ix: a_stream.index(),
             v_decoder: Some(v_decoder),
+            hw_selection,
             a_decoder: Some(a_decoder),
             time_base,
             audio_time_base,
@@ -247,6 +449,11 @@ impl VideoDecoder {
         let Some(mut input) = self.input.take() else {
             return;
         };
+        let hw_selection = self.hw_selection.take();
+        let hardware_pixel_format = hw_selection
+            .as_ref()
+            .map(|selection| selection.pixel_format);
+
         let Some(mut v_decoder) = self.v_decoder.take() else {
             return;
         };
@@ -280,17 +487,7 @@ impl VideoDecoder {
         let condvar = self.condvar.clone();
 
         thread::spawn(move || {
-            // init ffmpeg scaler
-            let mut scaler = ffmpeg_next::software::scaling::Context::get(
-                v_decoder.format(),
-                w,
-                h,
-                format::Pixel::BGRA,
-                w,
-                h,
-                scaling::Flags::BILINEAR,
-            )
-            .unwrap();
+            let mut scaler = None;
 
             println!("DEBUG: audio sample rate {}", a_decoder.rate());
 
@@ -304,7 +501,8 @@ impl VideoDecoder {
             let mut video_pkt_queue: VecDeque<Packet> = VecDeque::new();
             let mut audio_pkt_queue: VecDeque<Packet> = VecDeque::new();
             // frame varible
-            let mut decoded_frame = ffmpeg_next::frame::Video::new(v_decoder.format(), w, h);
+            let mut decoded_frame = ffmpeg_next::frame::Video::empty();
+            let mut hardware_frame = ffmpeg_next::frame::Video::empty();
             let mut scaled_frame = ffmpeg_next::frame::Video::new(format::Pixel::BGRA, w, h);
             let mut decoded_audio = ffmpeg_next::frame::Audio::empty();
             let mut resampled_audio = ffmpeg_next::frame::Audio::empty();
@@ -407,12 +605,14 @@ impl VideoDecoder {
                             &mut video_pkt_queue,
                             &mut v_decoder,
                             &mut decoded_frame,
+                            &mut hardware_frame,
                             &mut scaler,
                             &mut scaled_frame,
                             w,
                             h,
                             original_size,
                             Some(target),
+                            hardware_pixel_format,
                         );
                         if result.is_some() {
                             next_video_frame = result;
@@ -442,12 +642,14 @@ impl VideoDecoder {
                             &mut video_pkt_queue,
                             &mut v_decoder,
                             &mut decoded_frame,
+                            &mut hardware_frame,
                             &mut scaler,
                             &mut scaled_frame,
                             w,
                             h,
                             original_size,
                             None,
+                            hardware_pixel_format,
                         );
                     }
                     if next_audio_sample.is_none() {
@@ -483,6 +685,9 @@ impl VideoDecoder {
                     }
                 }
             }
+
+            drop(v_decoder);
+            drop(hw_selection);
         });
     }
 }
@@ -491,12 +696,14 @@ fn handle_video(
     queue: &mut VecDeque<Packet>,
     decoder: &mut decoder::Video,
     decoded_frame: &mut Video,
-    scaler: &mut ffmpeg_next::software::scaling::Context,
+    hardware_frame: &mut Video,
+    scaler: &mut Option<ffmpeg_next::software::scaling::Context>,
     scaled_frame: &mut ffmpeg_next::frame::Video,
     w: u32,
     h: u32,
     original_size: (u32, u32),
     seek_to: Option<i64>,
+    hardware_pixel_format: Option<AVPixelFormat>,
 ) -> Option<FrameImage> {
     let mut reseeked = false;
     if let Some(p) = queue.pop_front() {
@@ -504,7 +711,41 @@ fn handle_video(
             queue.push_front(p);
         }
 
-        if decoder.receive_frame(decoded_frame).is_ok() {
+        let received_frame: &mut Video = if hardware_pixel_format.is_some() {
+            &mut *hardware_frame
+        } else {
+            &mut *decoded_frame
+        };
+
+        if decoder.receive_frame(received_frame).is_ok() {
+            if let Some(expected_pixel_format) = hardware_pixel_format {
+                if unsafe { (*hardware_frame.as_ptr()).format } != expected_pixel_format as i32 {
+                    println!("DEBUG: video decoder: received an unexpected software frame");
+                    return None;
+                }
+
+                unsafe {
+                    av_frame_unref(decoded_frame.as_mut_ptr());
+                }
+                let result = unsafe {
+                    av_hwframe_transfer_data(decoded_frame.as_mut_ptr(), hardware_frame.as_ptr(), 0)
+                };
+                if result < 0 {
+                    println!("DEBUG: video decoder: hardware frame download failed ({result})");
+                    return None;
+                }
+
+                let result = unsafe {
+                    av_frame_copy_props(decoded_frame.as_mut_ptr(), hardware_frame.as_ptr())
+                };
+                if result < 0 {
+                    println!(
+                        "DEBUG: video decoder: hardware frame property copy failed ({result})"
+                    );
+                    return None;
+                }
+            }
+
             if let Some(to) = seek_to {
                 if decoded_frame.pts().unwrap_or(0) < to {
                     return None;
@@ -513,7 +754,22 @@ fn handle_video(
                 }
             }
 
-            scaler.run(decoded_frame, scaled_frame).unwrap();
+            let scaler = scaler.get_or_insert_with(|| {
+                ffmpeg_next::software::scaling::Context::get(
+                    decoded_frame.format(),
+                    w,
+                    h,
+                    format::Pixel::BGRA,
+                    w,
+                    h,
+                    scaling::Flags::BILINEAR,
+                )
+                .expect("failed to create video scaler")
+            });
+
+            if scaler.run(decoded_frame, scaled_frame).is_err() {
+                return None;
+            }
 
             return scale_frame(
                 scaled_frame,
