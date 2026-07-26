@@ -300,25 +300,10 @@ impl Player {
         Some(pts as f64 * time_base.numerator() as f64 / time_base.denominator() as f64)
     }
 
-    fn log_render_action(
-        &self,
-        frame: &FrameImage,
-        action: FrameAction,
-        reason: &'static str,
-        frame_time: Option<f64>,
-        play_time: Option<f64>,
-    ) -> FrameAction {
-        println!(
-            "[DEBUG-render] action={action:?} reason={reason} pts={} frame_time={frame_time:?} play_time={play_time:?}",
-            frame.pts
-        );
-        action
-    }
-
     /// compare frame and decision action
     fn compare_time(&mut self, frame: &FrameImage) -> FrameAction {
         let Some(frame_time) = self.frame_time(frame.pts) else {
-            return self.log_render_action(frame, FrameAction::Wait, "invalid_pts", None, None);
+            return FrameAction::Wait;
         };
         self.recent_pts = frame_time;
 
@@ -336,62 +321,26 @@ impl Player {
                     self.audio_play_block();
                     self.timer.start();
                 }
-                return self.log_render_action(
-                    frame,
-                    FrameAction::Render,
-                    "seek_target",
-                    Some(frame_time),
-                    None,
-                );
+                return FrameAction::Render;
             } else {
                 // drop remain frame
-                return self.log_render_action(
-                    frame,
-                    FrameAction::Drop,
-                    "seek_stale",
-                    Some(frame_time),
-                    None,
-                );
+                return FrameAction::Drop;
             }
         }
 
         let play_time = self.current_playtime();
         if frame_time > play_time + 0.3 {
             // frame is too future, wait
-            self.log_render_action(
-                frame,
-                FrameAction::Wait,
-                "future",
-                Some(frame_time),
-                Some(play_time),
-            )
+            FrameAction::Wait
         } else if frame_time < play_time - 0.3 {
             // frame is too old, drop
-            self.log_render_action(
-                frame,
-                FrameAction::Drop,
-                "late",
-                Some(frame_time),
-                Some(play_time),
-            )
+            FrameAction::Drop
         } else if frame_time <= play_time {
             // frame is in window and should render
-            self.log_render_action(
-                frame,
-                FrameAction::Render,
-                "due",
-                Some(frame_time),
-                Some(play_time),
-            )
+            FrameAction::Render
         } else {
             // frame is in window but just a bit ahead
-            self.log_render_action(
-                frame,
-                FrameAction::Wait,
-                "near_future",
-                Some(frame_time),
-                Some(play_time),
-            )
+            FrameAction::Wait
         }
     }
 

@@ -188,7 +188,6 @@ fn try_open_hardware_decoder(
         selection.device_type,
         selection.pixel_format
     );
-
     let mut selection = Box::new(selection);
     let mut context =
         ffmpeg_next::codec::context::Context::from_parameters(parameters.clone()).ok()?;
@@ -241,14 +240,16 @@ fn open_video_decoder(
         if let Some((decoder, selection)) = try_open_hardware_decoder(&parameters, codec, selection)
         {
             println!(
-                "DEBUG: video decoder: hardware enabled, device: {:?}, pixel format: {:?}",
-                selection.device_type, selection.pixel_format
+                "[DEBUG-hwprobe] selected decoder={}, device={:?}, pixel_format={:?}",
+                codec.name(),
+                selection.device_type,
+                selection.pixel_format
             );
             return Ok((decoder, Some(selection)));
         }
     }
 
-    println!("DEBUG: video decoder: using software decoder");
+    println!("[DEBUG-hwprobe] no hardware decoder selected; using software decoder");
     let context = ffmpeg_next::codec::context::Context::from_parameters(parameters)?;
     Ok((context.decoder().open_as(software_codec)?.video()?, None))
 }
@@ -368,14 +369,10 @@ impl VideoDecoder {
 
         let time_base = v_stream.time_base();
         let audio_time_base = a_stream.time_base();
-        // get sample rate and length of video frams
-        let frame_rate = v_stream.avg_frame_rate();
         let duration = i.duration();
         // get original video size
         let original_width = v_decoder.width();
         let original_height = v_decoder.height();
-
-        println!("DEBUG: frame rate: {}, duration: {}", frame_rate, duration);
 
         size.update(cx, |s, _| {
             s.set_original((original_width, original_height));
@@ -489,8 +486,6 @@ impl VideoDecoder {
         thread::spawn(move || {
             let mut scaler = None;
 
-            println!("DEBUG: audio sample rate {}", a_decoder.rate());
-
             let mut resampler =
                 Self::create_resampler(a_decoder.channel_layout(), &resampler_params).unwrap();
 
@@ -526,7 +521,7 @@ impl VideoDecoder {
                         DecoderEvent::Seek(t) => {
                             let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
                             if let Err(e) = input.seek(ts, ..ts) {
-                                println!("DEBUG: failed when seek: {}", e);
+                                eprintln!("video seek failed: {e}");
                                 continue;
                             }
 
@@ -538,7 +533,7 @@ impl VideoDecoder {
                         DecoderEvent::LastKey(t) => {
                             let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
                             if let Err(e) = input.seek(ts, ..ts) {
-                                println!("DEBUG: failed when seek: {}", e);
+                                eprintln!("video seek failed: {e}");
                                 continue;
                             }
 
@@ -550,7 +545,7 @@ impl VideoDecoder {
                         DecoderEvent::NextKey(t) => {
                             let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
                             if let Err(e) = input.seek(ts, ts..) {
-                                println!("DEBUG: failed when seek: {}", e);
+                                eprintln!("video seek failed: {e}");
                                 continue;
                             }
 
@@ -720,7 +715,7 @@ fn handle_video(
         if decoder.receive_frame(received_frame).is_ok() {
             if let Some(expected_pixel_format) = hardware_pixel_format {
                 if unsafe { (*hardware_frame.as_ptr()).format } != expected_pixel_format as i32 {
-                    println!("DEBUG: video decoder: received an unexpected software frame");
+                    eprintln!("video decoder received an unexpected software frame");
                     return None;
                 }
 
@@ -731,7 +726,7 @@ fn handle_video(
                     av_hwframe_transfer_data(decoded_frame.as_mut_ptr(), hardware_frame.as_ptr(), 0)
                 };
                 if result < 0 {
-                    println!("DEBUG: video decoder: hardware frame download failed ({result})");
+                    eprintln!("video hardware frame download failed ({result})");
                     return None;
                 }
 
@@ -739,9 +734,7 @@ fn handle_video(
                     av_frame_copy_props(decoded_frame.as_mut_ptr(), hardware_frame.as_ptr())
                 };
                 if result < 0 {
-                    println!(
-                        "DEBUG: video decoder: hardware frame property copy failed ({result})"
-                    );
+                    eprintln!("video hardware frame property copy failed ({result})");
                     return None;
                 }
             }
@@ -770,7 +763,6 @@ fn handle_video(
             if scaler.run(decoded_frame, scaled_frame).is_err() {
                 return None;
             }
-
             return scale_frame(
                 scaled_frame,
                 w,
@@ -849,36 +841,4 @@ pub fn scale_frame(
         pts,
         reseeked,
     })
-}
-
-pub fn find_best_codec(id: ffmpeg_next::codec::Id) -> Option<Codec> {
-    println!("DEBUG: find_best_codec: ID: {:?}", id);
-    let codec_name_base = match id {
-        ffmpeg_next::codec::Id::H264 => "h264",
-        ffmpeg_next::codec::Id::HEVC => "hevc",
-        ffmpeg_next::codec::Id::AV1 => "av1",
-        ffmpeg_next::codec::Id::VP9 => "vp9",
-        ffmpeg_next::codec::Id::MJPEG => "mjpeg",
-        _ => return None,
-    };
-
-    let hw_priorities = [
-        "cuvid",        // Nvidia (Windows/Linux) - 性能最好，自带显存管理
-        "videotoolbox", // macOS - 苹果原生，效率极高
-        "qsv",          // Intel (Windows/Linux) - QuickSync
-        "mediacodec",   // Android
-        "rkmpp",        // Rockchip (树莓派/开发板)
-    ];
-
-    // 3. 遍历尝试
-    for suffix in hw_priorities {
-        let candidate_name = format!("{}_{}", codec_name_base, suffix);
-        // try to find codec by name
-        let codec = ffmpeg_next::decoder::find_by_name(&candidate_name);
-        if codec.is_some() {
-            return codec;
-        }
-    }
-
-    None
 }
