@@ -416,48 +416,35 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                     div()
                         .h_flex()
                         .gap_2()
-                        .when_some(this.range_time(), |this, time| {
-                            this.child(Chip::new().border().label(format!(
-                                "A {} -> B {}",
-                                format_sec(time.start),
-                                format_sec(time.end)
-                            )))
+                        .when_some(this.range_time(), |d, time| {
+                            d.child(
+                                Chip::new()
+                                    .color(rgba(0x908015cc))
+                                    .border()
+                                    .label(format_sec((time.end - time.start).max(0.)))
+                                    .bold()
+                                    .icon_path(rounded::TIME_DURATION),
+                                // .child(Chip::new().border().label(format!(
+                                //     "{} > {}",
+                                //     format_sec(time.start),
+                                //     format_sec(time.end)
+                                // ))),
+                            )
                         })
                         .when_else(
                             play_state != PlayState::Stopped,
                             |d| {
-                                d.child(
-                                    div()
-                                        .h_flex()
-                                        .rounded_full()
-                                        .bg(rgba(0xf0e59a26))
-                                        .when_some(this.range_time(), |this, time| {
-                                            this.child(
-                                                div()
-                                                    .h_flex()
-                                                    .pl_4()
-                                                    .pr_2()
-                                                    .gap_2()
-                                                    .items_center()
-                                                    .child(
-                                                        svg()
-                                                            .path(rounded::TIME_DURATION)
-                                                            .text_color(gpui::white())
-                                                            .size_5(),
-                                                    )
-                                                    .child(format_sec(
-                                                        (time.end - time.start).max(0.),
-                                                    )),
-                                            )
-                                        })
-                                        .child(Chip::new().border().bold().label(format!(
-                                            "{} / {}",
-                                            format_sec(this.player.current_playtime() as f64),
-                                            format_sec(this.player.duration_sec().unwrap_or(0.))
-                                        ))),
+                                d.child(Chip::new().border().bold().label(format!(
+                                    "{} / {}",
+                                    format_sec(this.player.current_playtime() as f64),
+                                    format_sec(this.player.duration_sec().unwrap_or(0.))
+                                )))
+                            },
+                            |div| {
+                                div.child(
+                                    Chip::new().border().bold().label("-- : --.-- / -- : --.--"),
                                 )
                             },
-                            |div| div.child(Chip::new().border().bold().label("-- : -- / -- : --")),
                         ),
                 ),
         )
@@ -543,10 +530,12 @@ fn on_vol_down(this: &mut MyApp, _: &VolumeDown, _: &mut Window, cx: &mut Contex
 }
 
 fn format_sec(sec: f64) -> String {
+    let millis = (sec.max(0.0) * 1_000.0).floor() as u64;
     format!(
-        "{:02}:{:02}",
-        sec.round() as i32 / 60,
-        sec.round() as i32 % 60,
+        "{:02}:{:02}.{:02}",
+        millis / 60_000,
+        millis / 1_000 % 60,
+        millis % 100,
     )
 }
 

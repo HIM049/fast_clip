@@ -1,4 +1,7 @@
-use gpui::{Hsla, IntoElement, ParentElement, RenderOnce, Styled, div, prelude::FluentBuilder};
+use gpui::{
+    Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled, div,
+    prelude::FluentBuilder, svg,
+};
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 #[derive(IntoElement)]
@@ -7,6 +10,7 @@ pub struct Chip {
     color: Option<Hsla>,
     border: bool,
     bold: bool,
+    icon_path: Option<SharedString>,
 }
 
 impl Chip {
@@ -16,6 +20,7 @@ impl Chip {
             color: None,
             border: false,
             bold: false,
+            icon_path: None,
         }
     }
 
@@ -38,6 +43,11 @@ impl Chip {
         self.bold = true;
         self
     }
+
+    pub fn icon_path(mut self, path: impl Into<SharedString>) -> Self {
+        self.icon_path = Some(path.into());
+        self
+    }
 }
 
 impl RenderOnce for Chip {
@@ -52,6 +62,16 @@ impl RenderOnce for Chip {
             .px_5()
             .py_1()
             .rounded_full()
+            .gap_1()
+            .when_some(self.icon_path, |this, path| {
+                this.child(
+                    svg()
+                        .path(path)
+                        .size_6()
+                        // .when(self.small_icon, |this| this.size_5())
+                        .text_color(gpui::white().alpha(0.8)),
+                )
+            })
             .when(self.bold, |this| this.font_bold())
             .when(self.border, |this| {
                 this.border_1().border_color(gpui::white().alpha(0.3))

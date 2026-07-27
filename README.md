@@ -27,6 +27,12 @@ A simple video editor, helps you create clips fastly.
   - [x] multiple audio stream select
   - [x] volume adjust
   - [ ] multiple audio stream mix
+  - [ ] Update checker
+  - [ ] Output result
+  - [ ] Config window
+    - [ ] Decoder config
+    - [ ] seek config
+  - RELEASE 1.0
 
 - version 2.0
   - [ ] code transform
