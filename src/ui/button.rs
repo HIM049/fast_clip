@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, rgba, svg,
+    ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Transformation,
+    Window, div, percentage, prelude::FluentBuilder, radians, rgba, svg,
 };
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
@@ -15,6 +15,7 @@ pub struct RoundButton {
     label: Option<String>,
     icon: Option<String>,
     small_icon: bool,
+    flip_x: bool,
     child: Option<AnyElement>,
 }
 
@@ -27,6 +28,7 @@ impl RoundButton {
             label: None,
             icon: None,
             small_icon: false,
+            flip_x: false,
             child: None,
         }
     }
@@ -58,6 +60,11 @@ impl RoundButton {
 
     pub fn small_icon(mut self) -> Self {
         self.small_icon = true;
+        self
+    }
+
+    pub fn flip_x(mut self) -> Self {
+        self.flip_x = true;
         self
     }
 
@@ -102,6 +109,11 @@ impl RenderOnce for RoundButton {
                                 svg()
                                     .path(path)
                                     .size_6()
+                                    .when(self.flip_x, |this| {
+                                        this.with_transformation(Transformation::rotate(
+                                            percentage(0.5),
+                                        ))
+                                    })
                                     .when(self.small_icon, |this| this.size_5())
                                     .text_color(gpui::white().alpha(0.8)),
                             )

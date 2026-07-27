@@ -347,19 +347,19 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("go-back")
-                                .icon_path(icons::rounded::REPLAY_5_FILLED)
-                                .small_icon()
+                                .icon_path(icons::rounded::FAST_FOWARD)
+                                .flip_x()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Back), cx)),
                         )
                         .child(
                             RoundButton::new("go-forward")
-                                .icon_path(icons::rounded::FORWARD_5_FILLED)
-                                .small_icon()
+                                .icon_path(icons::rounded::FAST_FOWARD)
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Forward), cx)),
                         )
                         .child(
                             RoundButton::new("last-key")
-                                .icon_path(icons::rounded::FIRST_PAGE_FILLED)
+                                .icon_path(icons::rounded::SKIP_NEXT)
+                                .flip_x()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.player.last_key();
                                     cx.notify();
@@ -367,15 +367,29 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("next-key")
-                                .icon_path(icons::rounded::LAST_PAGE_FILLED)
+                                .icon_path(icons::rounded::SKIP_NEXT)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.player.next_key();
                                     cx.notify();
                                 })),
                         )
                         .child(
+                            RoundButton::new("set-start")
+                                .icon_path(icons::rounded::SELECTED_START)
+                                .small_icon()
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SetStart), cx)),
+                        )
+                        .child(
+                            RoundButton::new("set-end")
+                                .icon_path(icons::rounded::SELECTED_START)
+                                .flip_x()
+                                .small_icon()
+                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
+                        )
+                        .child(
                             RoundButton::new("to-beginning")
-                                .icon_path(icons::rounded::KEYBOARD_TAB_FILLED)
+                                .icon_path(icons::rounded::SELECTED_START_ARROW)
+                                .small_icon()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(start) = this.selection_range.start {
                                         this.player.seek_player(|_, dur| dur * start as f64);
@@ -385,25 +399,15 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("to-end")
-                                .icon_path(icons::rounded::KEYBOARD_TAB_R_FILLED)
+                                .icon_path(icons::rounded::SELECTED_START_ARROW)
+                                .flip_x()
+                                .small_icon()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     if let Some(end) = this.selection_range.end {
                                         this.player.seek_player(|_, dur| dur * end as f64);
                                     }
                                     cx.notify();
                                 })),
-                        )
-                        .child(
-                            RoundButton::new("set-start")
-                                .icon_path(icons::rounded::SELECTED_START_FILLED)
-                                .small_icon()
-                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SetStart), cx)),
-                        )
-                        .child(
-                            RoundButton::new("set-end")
-                                .icon_path(icons::rounded::SELECTED_END_FILLED)
-                                .small_icon()
-                                .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
                         ),
                 )
                 .child(
