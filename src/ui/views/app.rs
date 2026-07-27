@@ -11,7 +11,7 @@ use gpui_component::{ActiveTheme, Colorize, StyledExt};
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
     components::{
-        app_menu::{Close, OpenPlayerSetting},
+        app_menu::{ClearSelectedRange, Close, OpenPlayerSetting},
         app_title_bar::AppTitleBar,
     },
     config::AppConfig,
@@ -110,6 +110,14 @@ impl MyApp {
             p.selected_range = None;
         });
         self.player = Player::new(self.size.clone(), self.output_parames.clone());
+    }
+
+    /// close file and reset player
+    pub fn clear_selection(&mut self, cx: &mut Context<Self>) {
+        self.selection_range = Range {
+            start: None,
+            end: None,
+        };
     }
 
     /// reselect audio rail
@@ -262,6 +270,7 @@ impl Render for MyApp {
                     .track_focus(&self.focus_handle)
                     .on_action(cx.listener(on_open_settings))
                     .on_action(cx.listener(on_close_file))
+                    .on_action(cx.listener(on_clear_selection))
                     .on_action(cx.listener(on_switch))
                     .on_action(cx.listener(on_back))
                     .on_action(cx.listener(on_foward))
@@ -481,6 +490,15 @@ fn on_open_settings(
     cx: &mut Context<MyApp>,
 ) {
     PlayerSettingsView::open_window(cx, this.settings.clone()).unwrap();
+    cx.notify();
+}
+fn on_clear_selection(
+    this: &mut MyApp,
+    _: &ClearSelectedRange,
+    _: &mut Window,
+    cx: &mut Context<MyApp>,
+) {
+    this.clear_selection(cx);
     cx.notify();
 }
 fn on_close_file(this: &mut MyApp, _: &Close, _: &mut Window, cx: &mut Context<MyApp>) {

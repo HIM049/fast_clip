@@ -39,6 +39,14 @@ menu.audio:
   en: "Audio"
   zh-CN: "音频"
 
+menu.editor:
+  en: "Editor"
+  zh-CN: "编辑器"
+
+menu.clear-selscted-range:
+  en: "Clear Selected Range"
+  zh-CN: "清除选区范围"
+
 ui.output:
   en: "Output"
   zh-CN: "导出"

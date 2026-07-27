@@ -4,7 +4,18 @@ use rust_i18n::t;
 
 use crate::config::{self as config_store, AppConfig, Language};
 
-actions!(menu, [Quit, About, Open, Close, Output, OpenPlayerSetting]);
+actions!(
+    menu,
+    [
+        Quit,
+        About,
+        Open,
+        Close,
+        Output,
+        OpenPlayerSetting,
+        ClearSelectedRange
+    ]
+);
 
 #[derive(Action, Clone, PartialEq, Eq)]
 #[action(namespace = menu, no_json)]
@@ -76,6 +87,14 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
             name: SharedString::from(t!("menu.player")),
             disabled: false,
             items: vec![MenuItem::action(t!("menu.audio"), OpenPlayerSetting)],
+        },
+        Menu {
+            name: SharedString::from(t!("menu.editor")),
+            disabled: false,
+            items: vec![MenuItem::action(
+                t!("menu.clear-selscted-range"),
+                ClearSelectedRange,
+            )],
         },
         Menu {
             name: SharedString::from(t!("menu.settings")),
