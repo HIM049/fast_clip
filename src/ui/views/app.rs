@@ -377,6 +377,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                             RoundButton::new("set-start")
                                 .icon_path(icons::rounded::SELECTED_START)
                                 .small_icon()
+                                .yellow()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetStart), cx)),
                         )
                         .child(
@@ -384,6 +385,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                 .icon_path(icons::rounded::SELECTED_START)
                                 .flip_x()
                                 .small_icon()
+                                .yellow()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(SetEnd), cx)),
                         )
                         .child(
@@ -507,11 +509,11 @@ fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<
     cx.notify();
 }
 fn on_back(this: &mut MyApp, _: &Back, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.seek_player(|now, _| now - 5.);
+    this.player.seek_player(|now, dur| now - dur / 120.);
     cx.notify();
 }
 fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.seek_player(|now, _| now + 5.);
+    this.player.seek_player(|now, dur| now + dur / 120.);
     cx.notify();
 }
 

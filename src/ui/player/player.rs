@@ -56,9 +56,7 @@ pub struct Player {
     audio_player: AudioPlayer,
 
     recent_pts: f64,
-    is_seeking: bool,
-    handleing_time: Option<f64>,
-
+    pending_seeking: Option<f64>,
     play_signal: Arc<AtomicBool>,
     audio_gain: Arc<AtomicF32>,
 }
@@ -92,9 +90,7 @@ impl Player {
             audio_player,
 
             recent_pts: 0.0,
-            is_seeking: false,
-            handleing_time: None,
-
+            pending_seeking: None,
             play_signal,
             audio_gain,
         }
@@ -106,7 +102,7 @@ impl Player {
     }
 
     pub fn is_seeking(&self) -> bool {
-        self.is_seeking
+        self.pending_seeking.is_some()
     }
 
     /// Get current player state
@@ -195,14 +191,14 @@ impl Player {
     /// find and seek to last key frame
     pub fn last_key(&mut self) {
         self.timer.stop();
-        let ct = self.timer.current_time_sec();
+        let ct = self.current_playtime();
         let target = (ct - 0.1).max(0.0);
 
         if let Some(d) = self.decoder.as_mut() {
             d.set_event(DecoderEvent::LastKey(target));
         }
-        self.handleing_time = Some(target);
-        self.is_seeking = true;
+
+        self.pending_seeking = Some(target);
         self.frame_buf = None;
         self.consumer.clear();
         self.audio_player.pause().unwrap();
@@ -211,14 +207,13 @@ impl Player {
     /// find and seek to next key frame
     pub fn next_key(&mut self) {
         self.timer.stop();
-        let ct = self.timer.current_time_sec();
+        let ct = self.current_playtime();
         let target = ct + 0.1;
 
         if let Some(d) = self.decoder.as_mut() {
             d.set_event(DecoderEvent::NextKey(target));
         }
-        self.handleing_time = Some(target);
-        self.is_seeking = true;
+        self.pending_seeking = Some(target);
         self.frame_buf = None;
         self.consumer.clear();
         self.audio_player.pause().unwrap();
@@ -231,7 +226,7 @@ impl Player {
     {
         if self.state != PlayState::Stopped {
             let dur_sec = self.duration_sec().unwrap_or(0.);
-            let now = match self.handleing_time.take() {
+            let now = match self.pending_seeking {
                 Some(t) => t,
                 None => self.timer.current_time_sec(),
             };
@@ -242,11 +237,10 @@ impl Player {
 
     /// seek player with sec
     pub fn seek_to(&mut self, time: f64) {
+        self.pending_seeking = Some(time);
         if let Some(decoder) = self.decoder.as_mut() {
             decoder.set_event(DecoderEvent::Seek(time));
         };
-        self.handleing_time = Some(time);
-        self.is_seeking = true;
         self.frame_buf = None;
         self.consumer.clear();
         self.audio_player.pause().unwrap();
@@ -276,6 +270,9 @@ impl Player {
 
     /// calc current time
     pub fn current_playtime(&self) -> f64 {
+        if let Some(seek) = self.pending_seeking {
+            return seek;
+        }
         self.timer.current_time_sec()
     }
 
@@ -308,12 +305,11 @@ impl Player {
         self.recent_pts = frame_time;
 
         // when resseking
-        if self.is_seeking {
+        if self.is_seeking() {
             // wait first reeked frame
             if frame.reseeked {
                 // set status
-                self.is_seeking = false;
-                self.handleing_time = None;
+                self.pending_seeking = None;
                 // reset timer
                 self.timer.set_time_sec(self.frame_time(frame.pts).unwrap());
                 // resume play if need
@@ -347,10 +343,10 @@ impl Player {
     /// build new viewer for every frame
     pub fn view(&mut self, w: &mut Window) -> Viewer {
         // only keep flash when playing and seeking
-        if self.state == PlayState::Playing || self.is_seeking {
+        if self.state == PlayState::Playing || self.is_seeking() {
             // on the end of play
             if self.timer.current_time_sec() >= self.duration_sec().unwrap_or(0.0)
-                && !self.is_seeking
+                && !self.is_seeking()
             {
                 self.pause_play();
                 self.seek_to(0.0);

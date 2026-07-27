@@ -43,6 +43,11 @@ impl RoundButton {
         self
     }
 
+    pub fn yellow(mut self) -> Self {
+        self.color = Some(rgba(0x908015cc).into());
+        self
+    }
+
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self

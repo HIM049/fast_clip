@@ -300,10 +300,7 @@ impl VideoDecoder {
     }
 
     pub fn get_duration(&self) -> Option<i64> {
-        if self.duration == 0 {
-            return None;
-        }
-        if self.duration.is_negative() {
+        if !self.duration.is_positive() {
             return None;
         }
         Some(self.duration)
@@ -352,15 +349,6 @@ impl VideoDecoder {
         }
 
         let (v_decoder, hw_selection) = open_video_decoder(v_stream.parameters())?;
-
-        // Legacy vendor-suffixed decoder selection is intentionally disabled.
-        // It conflicts with the generic decoder + D3D11VA device-context path above.
-        // let d = ffmpeg_next::codec::context::Context::from_parameters(v_stream.parameters())?.decoder();
-        // let v_decoder = if let Some(codec) = find_best_codec(v_stream.parameters().id()) {
-        //     d.open_as(codec)?.video()?
-        // } else {
-        //     d.video()?
-        // };
 
         let a_decoder =
             ffmpeg_next::codec::context::Context::from_parameters(a_stream.parameters())?
