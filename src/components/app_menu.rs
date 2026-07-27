@@ -1,4 +1,4 @@
-use gpui::{Action, App, Entity, Menu, MenuItem, OwnedMenu, OwnedMenuItem, SharedString, actions};
+use gpui::{Action, App, Entity, Menu, MenuItem, SharedString, actions};
 use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
@@ -51,10 +51,8 @@ pub fn init(
     app_menu_bar
 }
 
-fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuBar>, cx: &mut App) {
-    // let mode = cx.theme().mode;
-
-    let menus = vec![
+fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
+    vec![
         Menu {
             name: title.into(),
             disabled: false,
@@ -63,8 +61,7 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.quit"), Quit),
             ],
-        }
-        .owned(),
+        },
         Menu {
             name: SharedString::from(t!("menu.file")),
             disabled: false,
@@ -74,24 +71,31 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.output"), Output),
             ],
-        }
-        .owned(),
+        },
         Menu {
             name: SharedString::from(t!("menu.player")),
             disabled: false,
             items: vec![MenuItem::action(t!("menu.audio"), OpenPlayerSetting)],
-        }
-        .owned(),
+        },
         Menu {
             name: SharedString::from(t!("menu.settings")),
             disabled: false,
             items: vec![language_menu()],
-        }
-        .owned(),
-    ];
+        },
+    ]
+}
 
-    GlobalState::global_mut(cx).set_app_menus(menus);
-    // cx.set_menus();
+fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuBar>, cx: &mut App) {
+    // let mode = cx.theme().mode;
+
+    let title: SharedString = title.into();
+    cx.set_menus(build_menus(title.clone(), cx));
+
+    let owned_menus = build_menus(title, cx)
+        .into_iter()
+        .map(|m| m.owned())
+        .collect();
+    GlobalState::global_mut(cx).set_app_menus(owned_menus);
 
     app_menu_bar.update(cx, |menu_bar, cx| {
         menu_bar.reload(cx);
