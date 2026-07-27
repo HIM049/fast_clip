@@ -69,6 +69,7 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
             disabled: false,
             items: vec![
                 MenuItem::action(t!("menu.about"), About),
+                language_menu(),
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.quit"), Quit),
             ],
@@ -96,11 +97,11 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
                 ClearSelectedRange,
             )],
         },
-        Menu {
-            name: SharedString::from(t!("menu.settings")),
-            disabled: false,
-            items: vec![language_menu()],
-        },
+        // Menu {
+        //     name: SharedString::from(t!("menu.settings")),
+        //     disabled: false,
+        //     items: vec![language_menu()],
+        // },
     ]
 }
 
