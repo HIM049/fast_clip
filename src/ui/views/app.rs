@@ -432,6 +432,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                     .border()
                                     .label(format_sec((time.end - time.start).max(0.)))
                                     .bold()
+                                    .mono()
                                     .icon_path(rounded::TIME_DURATION),
                                 // .child(Chip::new().border().label(format!(
                                 //     "{} > {}",
@@ -443,7 +444,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .when_else(
                             play_state != PlayState::Stopped,
                             |d| {
-                                d.child(Chip::new().border().bold().label(format!(
+                                d.child(Chip::new().border().bold().mono().label(format!(
                                     "{} / {}",
                                     format_sec(this.player.current_playtime() as f64),
                                     format_sec(this.player.duration_sec().unwrap_or(0.))
@@ -451,7 +452,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                             },
                             |div| {
                                 div.child(
-                                    Chip::new().border().bold().label("-- : --.-- / -- : --.--"),
+                                    Chip::new().border().bold().mono().label("-- : --.-- / -- : --.--"),
                                 )
                             },
                         ),

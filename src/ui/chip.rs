@@ -10,6 +10,7 @@ pub struct Chip {
     color: Option<Hsla>,
     border: bool,
     bold: bool,
+    mono: bool,
     icon_path: Option<SharedString>,
 }
 
@@ -20,6 +21,7 @@ impl Chip {
             color: None,
             border: false,
             bold: false,
+            mono: false,
             icon_path: None,
         }
     }
@@ -41,6 +43,11 @@ impl Chip {
 
     pub fn bold(mut self) -> Self {
         self.bold = true;
+        self
+    }
+
+    pub fn mono(mut self) -> Self {
+        self.mono = true;
         self
     }
 
@@ -73,6 +80,12 @@ impl RenderOnce for Chip {
                 )
             })
             .when(self.bold, |this| this.font_bold())
+            .when(self.mono, |this| {
+                this.font_features(gpui::FontFeatures(std::sync::Arc::new(vec![(
+                    "tnum".to_string(),
+                    1,
+                )])))
+            })
             .when(self.border, |this| {
                 this.border_1().border_color(gpui::white().alpha(0.3))
             })
