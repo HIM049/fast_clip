@@ -3,14 +3,17 @@ use std::{
     ffi::c_void,
     path::PathBuf,
     ptr,
-    sync::{Arc, Condvar, Mutex},
+    sync::{
+        Arc, Condvar, Mutex,
+        atomic::{AtomicU8, Ordering},
+    },
     thread,
     time::Duration,
 };
 
 use anyhow::anyhow;
 use ffmpeg_next::{
-    ChannelLayout, Codec, Packet, Rational,
+    ChannelLayout, Codec, Error, Packet, Rational,
     decoder::{self},
     ffi::{
         AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVCodecContext, AVHWDeviceType, AVPixelFormat,
@@ -234,7 +237,6 @@ fn open_video_decoder(
     parameters: ffmpeg_next::codec::Parameters,
 ) -> anyhow::Result<(decoder::Video, Option<Box<HwSelection>>)> {
     let codec_id = parameters.id();
-    let software_codec = decoder::find(codec_id).ok_or(anyhow!("cannot find video decoder"))?;
 
     for (codec, selection) in find_hardware_decoders(codec_id) {
         if let Some((decoder, selection)) = try_open_hardware_decoder(&parameters, codec, selection)
@@ -250,14 +252,60 @@ fn open_video_decoder(
     }
 
     println!("[DEBUG-hwprobe] no hardware decoder selected; using software decoder");
+    Ok((open_software_video_decoder(parameters)?, None))
+}
+
+fn open_software_video_decoder(
+    parameters: ffmpeg_next::codec::Parameters,
+) -> anyhow::Result<decoder::Video> {
+    let software_codec =
+        decoder::find(parameters.id()).ok_or(anyhow!("cannot find video decoder"))?;
     let context = ffmpeg_next::codec::context::Context::from_parameters(parameters)?;
-    Ok((context.decoder().open_as(software_codec)?.video()?, None))
+    Ok(context.decoder().open_as(software_codec)?.video()?)
+}
+
+fn open_audio_decoder(
+    parameters: ffmpeg_next::codec::Parameters,
+) -> anyhow::Result<decoder::Audio> {
+    Ok(
+        ffmpeg_next::codec::context::Context::from_parameters(parameters)?
+            .decoder()
+            .audio()?,
+    )
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DecodeMode {
+    Software = 0,
+    Hardware = 1,
+}
+
+impl DecodeMode {
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+enum VideoDecodeResult {
+    Frame(FrameImage),
+    NoFrame,
+    HardwareStartupFailed(Error),
+    HardwareDownloadFailed(i32),
+}
+
+enum HardwareFailure {
+    Startup(Error),
+    Download(i32),
 }
 
 pub struct VideoDecoder {
+    path: PathBuf,
     input: Option<context::Input>,
     video_stream_ix: usize,
     audio_stream_ix: usize,
+    video_parameters: ffmpeg_next::codec::Parameters,
+    audio_parameters: ffmpeg_next::codec::Parameters,
     v_decoder: Option<decoder::Video>,
     hw_selection: Option<Box<HwSelection>>,
     a_decoder: Option<decoder::Audio>,
@@ -273,6 +321,7 @@ pub struct VideoDecoder {
     // output_prarms: Entity<OutputParams>,
     event: Arc<Mutex<DecoderEvent>>,
     condvar: Arc<Condvar>,
+    decode_mode: Arc<AtomicU8>,
 }
 
 impl VideoDecoder {
@@ -348,12 +397,11 @@ impl VideoDecoder {
             });
         }
 
-        let (v_decoder, hw_selection) = open_video_decoder(v_stream.parameters())?;
+        let video_parameters = v_stream.parameters();
+        let audio_parameters = a_stream.parameters();
+        let (v_decoder, hw_selection) = open_video_decoder(video_parameters.clone())?;
 
-        let a_decoder =
-            ffmpeg_next::codec::context::Context::from_parameters(a_stream.parameters())?
-                .decoder()
-                .audio()?;
+        let a_decoder = open_audio_decoder(audio_parameters.clone())?;
 
         let time_base = v_stream.time_base();
         let audio_time_base = a_stream.time_base();
@@ -374,9 +422,18 @@ impl VideoDecoder {
             p.audio_rails = Some(rails);
         });
 
+        let decode_mode = if hw_selection.is_some() {
+            DecodeMode::Hardware
+        } else {
+            DecodeMode::Software
+        };
+
         Ok(Self {
+            path: path.clone(),
             video_stream_ix: v_stream.index(),
             audio_stream_ix: a_stream.index(),
+            video_parameters,
+            audio_parameters,
             v_decoder: Some(v_decoder),
             hw_selection,
             a_decoder: Some(a_decoder),
@@ -392,6 +449,7 @@ impl VideoDecoder {
 
             event: Arc::new(Mutex::new(DecoderEvent::None)),
             condvar: Arc::new(Condvar::new()),
+            decode_mode: Arc::new(AtomicU8::new(decode_mode.as_u8())),
         })
     }
 
@@ -405,6 +463,15 @@ impl VideoDecoder {
             target_format: format::Sample::F32(Type::Packed),
             target_rate: self.device_sample_rate,
         })
+    }
+
+    fn resampler_params_for(a_decoder: &decoder::Audio, target_rate: u32) -> ResamplerParams {
+        ResamplerParams {
+            format: a_decoder.format(),
+            source_rate: a_decoder.rate(),
+            target_format: format::Sample::F32(Type::Packed),
+            target_rate,
+        }
     }
 
     fn create_resampler(
@@ -434,8 +501,8 @@ impl VideoDecoder {
         let Some(mut input) = self.input.take() else {
             return;
         };
-        let hw_selection = self.hw_selection.take();
-        let hardware_pixel_format = hw_selection
+        let mut hw_selection = self.hw_selection.take();
+        let mut hardware_pixel_format = hw_selection
             .as_ref()
             .map(|selection| selection.pixel_format);
 
@@ -470,9 +537,16 @@ impl VideoDecoder {
         let h = v_decoder.height();
         let event = self.event.clone();
         let condvar = self.condvar.clone();
+        let path = self.path.clone();
+        let video_parameters = self.video_parameters.clone();
+        let audio_parameters = self.audio_parameters.clone();
+        let decode_mode = self.decode_mode.clone();
 
         thread::spawn(move || {
             let mut scaler = None;
+            let mut resampler_params = resampler_params;
+            let mut w = w;
+            let mut h = h;
 
             let mut resampler =
                 Self::create_resampler(a_decoder.channel_layout(), &resampler_params).unwrap();
@@ -493,6 +567,7 @@ impl VideoDecoder {
             let mut seeking_to: Option<f64> = None;
             let mut seek_state = (false, false);
             let mut is_read_finished = false;
+            let mut first_video_frame_pushed = false;
 
             loop {
                 {
@@ -576,6 +651,8 @@ impl VideoDecoder {
                     }
                 }
 
+                let mut hardware_failure = None;
+
                 // drop extra frames when seek
                 if let Some(to) = seeking_to {
                     let target =
@@ -584,7 +661,7 @@ impl VideoDecoder {
                         / audio_time_base.numerator() as f64)
                         as i64;
                     if !seek_state.0 {
-                        let result = handle_video(
+                        match handle_video(
                             &mut video_pkt_queue,
                             &mut v_decoder,
                             &mut decoded_frame,
@@ -596,10 +673,18 @@ impl VideoDecoder {
                             original_size,
                             Some(target),
                             hardware_pixel_format,
-                        );
-                        if result.is_some() {
-                            next_video_frame = result;
-                            seek_state.0 = true;
+                        ) {
+                            VideoDecodeResult::Frame(frame) => {
+                                next_video_frame = Some(frame);
+                                seek_state.0 = true;
+                            }
+                            VideoDecodeResult::HardwareStartupFailed(error) => {
+                                hardware_failure = Some(HardwareFailure::Startup(error));
+                            }
+                            VideoDecodeResult::HardwareDownloadFailed(code) => {
+                                hardware_failure = Some(HardwareFailure::Download(code));
+                            }
+                            VideoDecodeResult::NoFrame => {}
                         }
                     }
                     if !seek_state.1 {
@@ -621,7 +706,7 @@ impl VideoDecoder {
                     }
                 } else {
                     if next_video_frame.is_none() {
-                        next_video_frame = handle_video(
+                        match handle_video(
                             &mut video_pkt_queue,
                             &mut v_decoder,
                             &mut decoded_frame,
@@ -633,7 +718,16 @@ impl VideoDecoder {
                             original_size,
                             None,
                             hardware_pixel_format,
-                        );
+                        ) {
+                            VideoDecodeResult::Frame(frame) => next_video_frame = Some(frame),
+                            VideoDecodeResult::HardwareStartupFailed(error) => {
+                                hardware_failure = Some(HardwareFailure::Startup(error));
+                            }
+                            VideoDecodeResult::HardwareDownloadFailed(code) => {
+                                hardware_failure = Some(HardwareFailure::Download(code));
+                            }
+                            VideoDecodeResult::NoFrame => {}
+                        }
                     }
                     if next_audio_sample.is_none() {
                         next_audio_sample = handle_audio(
@@ -647,6 +741,107 @@ impl VideoDecoder {
                     }
                 }
 
+                if let Some(failure) = hardware_failure {
+                    let switched_to_software = !first_video_frame_pushed
+                        && decode_mode
+                            .compare_exchange(
+                                DecodeMode::Hardware.as_u8(),
+                                DecodeMode::Software.as_u8(),
+                                Ordering::AcqRel,
+                                Ordering::Acquire,
+                            )
+                            .is_ok();
+
+                    if !switched_to_software {
+                        match failure {
+                            HardwareFailure::Startup(error) => {
+                                eprintln!("video hardware decoder startup failed: {error}");
+                            }
+                            HardwareFailure::Download(code) => {
+                                eprintln!("video hardware frame download failed ({code})");
+                            }
+                        }
+                    } else {
+                        match failure {
+                            HardwareFailure::Startup(error) => {
+                                eprintln!(
+                                    "video hardware decoder startup failed: {error}; falling back to software decoder"
+                                );
+                            }
+                            HardwareFailure::Download(code) => {
+                                eprintln!(
+                                    "video hardware frame download failed ({code}); falling back to software decoder"
+                                );
+                            }
+                        }
+
+                        input = match ffmpeg_next::format::input(&path) {
+                            Ok(input) => input,
+                            Err(error) => {
+                                eprintln!(
+                                    "video software fallback failed to reopen input: {error}"
+                                );
+                                break;
+                            }
+                        };
+                        v_decoder = match open_software_video_decoder(video_parameters.clone()) {
+                            Ok(decoder) => decoder,
+                            Err(error) => {
+                                eprintln!(
+                                    "video software fallback failed to open decoder: {error}"
+                                );
+                                break;
+                            }
+                        };
+                        a_decoder = match open_audio_decoder(audio_parameters.clone()) {
+                            Ok(decoder) => decoder,
+                            Err(error) => {
+                                eprintln!(
+                                    "video software fallback failed to open audio decoder: {error}"
+                                );
+                                break;
+                            }
+                        };
+                        resampler_params =
+                            Self::resampler_params_for(&a_decoder, resampler_params.target_rate);
+                        resampler = match Self::create_resampler(
+                            a_decoder.channel_layout(),
+                            &resampler_params,
+                        ) {
+                            Ok(resampler) => resampler,
+                            Err(error) => {
+                                eprintln!(
+                                    "video software fallback failed to create resampler: {error}"
+                                );
+                                break;
+                            }
+                        };
+
+                        hw_selection = None;
+                        hardware_pixel_format = None;
+                        w = v_decoder.width();
+                        h = v_decoder.height();
+                        scaler = None;
+                        next_video_frame = None;
+                        next_audio_sample = None;
+                        video_pkt_queue.clear();
+                        audio_pkt_queue.clear();
+                        decoded_frame = Video::empty();
+                        hardware_frame = Video::empty();
+                        scaled_frame = Video::new(format::Pixel::BGRA, w, h);
+                        decoded_audio = Audio::empty();
+                        resampled_audio = Audio::empty();
+                        seek_state = (false, false);
+                        is_read_finished = false;
+                        unsafe {
+                            v_producer.set_write_index(v_producer.read_index());
+                            a_producer.set_write_index(a_producer.read_index());
+                        }
+                        println!("DEBUG: video decoder: software fallback initialized");
+                        continue;
+                    }
+                }
+
                 // if ringbuf is full
                 if v_producer.is_full() && a_producer.is_full()
                     || is_read_finished && next_video_frame.is_none() && next_audio_sample.is_none()
@@ -656,8 +851,9 @@ impl VideoDecoder {
 
                 // push frame to ringbuf
                 if let Some(f) = next_video_frame.take() {
-                    if let Err(f) = v_producer.try_push(f) {
-                        next_video_frame = Some(f);
+                    match v_producer.try_push(f) {
+                        Ok(()) => first_video_frame_pushed = true,
+                        Err(f) => next_video_frame = Some(f),
                     }
                 }
                 // push audio sample to ringbuf
@@ -687,11 +883,21 @@ fn handle_video(
     original_size: (u32, u32),
     seek_to: Option<i64>,
     hardware_pixel_format: Option<AVPixelFormat>,
-) -> Option<FrameImage> {
+) -> VideoDecodeResult {
     let mut reseeked = false;
     if let Some(p) = queue.pop_front() {
-        if decoder.send_packet(&p).is_err() {
-            queue.push_front(p);
+        match decoder.send_packet(&p) {
+            Ok(()) => {}
+            Err(Error::Other { errno }) if errno == ffmpeg_next::error::EAGAIN => {
+                queue.push_front(p);
+            }
+            Err(error) if hardware_pixel_format.is_some() => {
+                queue.push_front(p);
+                return VideoDecodeResult::HardwareStartupFailed(error);
+            }
+            Err(_) => {
+                queue.push_front(p);
+            }
         }
 
         let received_frame: &mut Video = if hardware_pixel_format.is_some() {
@@ -700,11 +906,20 @@ fn handle_video(
             &mut *decoded_frame
         };
 
-        if decoder.receive_frame(received_frame).is_ok() {
+        let received_frame = match decoder.receive_frame(received_frame) {
+            Ok(()) => true,
+            Err(Error::Other { errno }) if errno == ffmpeg_next::error::EAGAIN => false,
+            Err(error) if hardware_pixel_format.is_some() => {
+                return VideoDecodeResult::HardwareStartupFailed(error);
+            }
+            Err(_) => false,
+        };
+
+        if received_frame {
             if let Some(expected_pixel_format) = hardware_pixel_format {
                 if unsafe { (*hardware_frame.as_ptr()).format } != expected_pixel_format as i32 {
                     eprintln!("video decoder received an unexpected software frame");
-                    return None;
+                    return VideoDecodeResult::NoFrame;
                 }
 
                 unsafe {
@@ -714,8 +929,7 @@ fn handle_video(
                     av_hwframe_transfer_data(decoded_frame.as_mut_ptr(), hardware_frame.as_ptr(), 0)
                 };
                 if result < 0 {
-                    eprintln!("video hardware frame download failed ({result})");
-                    return None;
+                    return VideoDecodeResult::HardwareDownloadFailed(result);
                 }
 
                 let result = unsafe {
@@ -723,13 +937,13 @@ fn handle_video(
                 };
                 if result < 0 {
                     eprintln!("video hardware frame property copy failed ({result})");
-                    return None;
+                    return VideoDecodeResult::NoFrame;
                 }
             }
 
             if let Some(to) = seek_to {
                 if decoded_frame.pts().unwrap_or(0) < to {
-                    return None;
+                    return VideoDecodeResult::NoFrame;
                 } else {
                     reseeked = true;
                 }
@@ -749,7 +963,7 @@ fn handle_video(
             });
 
             if scaler.run(decoded_frame, scaled_frame).is_err() {
-                return None;
+                return VideoDecodeResult::NoFrame;
             }
             return scale_frame(
                 scaled_frame,
@@ -758,10 +972,11 @@ fn handle_video(
                 original_size,
                 decoded_frame.pts().unwrap_or(0),
                 reseeked,
-            );
+            )
+            .map_or(VideoDecodeResult::NoFrame, VideoDecodeResult::Frame);
         }
     }
-    None
+    VideoDecodeResult::NoFrame
 }
 
 fn handle_audio(
