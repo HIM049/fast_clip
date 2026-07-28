@@ -6,7 +6,7 @@ use gpui::{
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Task, Window, div,
     prelude::FluentBuilder, px, rgba, svg,
 };
-use gpui_component::{ActiveTheme, Colorize, StyledExt};
+use gpui_component::{ActiveTheme, Colorize, Root, StyledExt};
 
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
@@ -241,6 +241,8 @@ impl MyApp {
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bg_color = cx.theme().background.darken(0.5);
+        let dialog_layer = Root::render_dialog_layer(window, cx);
+
         if self.player.get_state() != PlayState::Stopped {
             cx.focus_self(window);
             cx.on_next_frame(window, |_, _, cx| {
@@ -304,6 +306,7 @@ impl Render for MyApp {
                         control_area(self, cx),
                     ),
             )
+            .children(dialog_layer)
     }
 }
 
@@ -452,7 +455,11 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                             },
                             |div| {
                                 div.child(
-                                    Chip::new().border().bold().mono().label("-- : --.-- / -- : --.--"),
+                                    Chip::new()
+                                        .border()
+                                        .bold()
+                                        .mono()
+                                        .label("-- : --.-- / -- : --.--"),
                                 )
                             },
                         ),

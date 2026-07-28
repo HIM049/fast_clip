@@ -22,6 +22,7 @@ log = "0.4"
 reqwest = { version = "0.12.28", features = ["json", "blocking", "rustls-tls", "stream", "rustls-tls-native-roots"] }
 serde = "1.0.229"
 serde_json = "1.0.151"
+futures = "0.3"
 
 [dependencies]
 anyhow.workspace = true
@@ -30,6 +31,7 @@ gpui_platform.workspace = true
 gpui-component = { git = "https://github.com/longbridge/gpui-component.git" }
 gpui-component-assets = { git = "https://github.com/longbridge/gpui-component.git" }
 reqwest.workspace = true
+futures.workspace = true
 
 reqwest_client = { path = "crates/reqwest_client" }
 app_assets = { path = "crates/app_assets" }
@@ -44,6 +46,7 @@ cpal = "0.17.3"
 rust-i18n = "3.1.5"
 path-absolutize = "3.1.1"
 atomic_float = "1.1.0"
+semver = "1.0.28"
 
 [build-dependencies]
 winres = "0.1.12"

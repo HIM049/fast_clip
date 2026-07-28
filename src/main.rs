@@ -19,6 +19,7 @@ mod components;
 mod config;
 mod models;
 mod ui;
+mod update;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -63,34 +64,35 @@ fn main() {
         cx.bind_keys([KeyBinding::new(OUTPUT_KEY, Output, None)]);
 
         cx.set_http_client(Arc::new(http));
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
-                    None,
-                    size(px(1000.), px(800.)),
-                    cx,
-                ))),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("Fast Clip".into()),
-                    appears_transparent: true,
-                    traffic_light_position: Some(gpui::point(px(9.0), px(9.0))),
-                }),
-                show: true,
-                ..Default::default()
-            },
-            |window, cx| {
-                let view = cx.new(|cx| {
-                    MyApp::new(
+        let app_window = cx
+            .open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
+                        None,
+                        size(px(1000.), px(800.)),
                         cx,
-                        size_entity,
-                        params_entity.clone(),
-                        config_entity.clone(),
-                    )
-                });
-                cx.new(|cx| Root::new(view, window, cx))
-            },
-        )
-        .unwrap();
+                    ))),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("Fast Clip".into()),
+                        appears_transparent: true,
+                        traffic_light_position: Some(gpui::point(px(9.0), px(9.0))),
+                    }),
+                    show: true,
+                    ..Default::default()
+                },
+                |window, cx| {
+                    let view = cx.new(|cx| {
+                        MyApp::new(
+                            cx,
+                            size_entity,
+                            params_entity.clone(),
+                            config_entity.clone(),
+                        )
+                    });
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
+            )
+            .unwrap();
 
         cx.on_action(|_: &Quit, cx| {
             cx.quit();
@@ -125,6 +127,34 @@ fn main() {
             })
             .detach();
         });
+
+        let app_window: AnyWindowHandle = app_window.into();
+        let http_client = cx.http_client().clone();
+        cx.spawn(async move |cx| {
+            let Ok(result) = update::check_update(http_client).await else {
+                println!("Failed to check update");
+                return;
+            };
+
+            if let Some(url) = result {
+                app_window
+                    .update(cx, move |_, w, cx| {
+                        w.open_alert_dialog(cx, move |alert, _, _| {
+                            let url = url.clone();
+                            alert
+                                .title(t!("dialog.update_dialog.title"))
+                                .description(t!("dialog.update_dialog.description"))
+                                .show_cancel(true)
+                                .on_ok(move |_, _, cx| {
+                                    cx.open_url(url.as_ref());
+                                    true
+                                })
+                        });
+                    })
+                    .unwrap();
+            }
+        })
+        .detach();
     });
 }
 

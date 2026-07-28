@@ -62,3 +62,11 @@ ui.cp-stream:
 ui.autio-rail:
   en: "Audio Rail"
   zh-CN: "音频轨道"
+
+dialog.update_dialog.title:
+  en: "Update Available"
+  zh-CN: "更新可用"
+
+dialog.update_dialog.description:
+  en: "A new version of Fast Clip is available. Open the GitHub release page?"
+  zh-CN: "有新的更新可用，要打开 GitHub 发布页面吗？"
