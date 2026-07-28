@@ -3,14 +3,15 @@ use std::{env, path::PathBuf, sync::Arc};
 
 use gpui::*;
 use gpui_component::*;
+use rust_i18n::t;
 
 use crate::{
-    components::app_menu::{About, Open, Output, Quit},
+    components::app_menu::{About, Open, Output, Quit, Settings},
     config::AppConfig,
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
-        views::{about::AboutView, app::MyApp, output::OutputView},
+        views::{about::AboutView, app::MyApp, output::OutputView, settings::SettingsView},
     },
 };
 use reqwest_client;
@@ -94,6 +95,7 @@ fn main() {
         cx.on_action(|_: &Quit, cx| {
             cx.quit();
         });
+        cx.on_action(open_settings_window(window_state.clone()));
         cx.on_action(open_about_window(window_state.clone()));
         cx.on_action(open_output_window(window_state, params_entity.clone()));
         cx.on_action(move |_: &Open, cx| {
@@ -124,6 +126,42 @@ fn main() {
             .detach();
         });
     });
+}
+
+fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings, &mut App) {
+    move |_: &Settings, cx| {
+        window_state.update(cx, |ws, cx| {
+            if active_window(cx, &mut ws.settings_handle).is_ok() {
+                return;
+            }
+
+            let window_bounds = Some(WindowBounds::Windowed(Bounds::centered(
+                None,
+                size(px(800.), px(600.)),
+                cx,
+            )));
+            let handle = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds,
+                        titlebar: Some(TitlebarOptions {
+                            title: Some(t!("menu.settings").into()),
+                            appears_transparent: false,
+                            traffic_light_position: None,
+                        }),
+                        focus: true,
+                        show: true,
+                        ..Default::default()
+                    },
+                    |window, cx| {
+                        let view = cx.new(SettingsView::new);
+                        cx.new(|cx| Root::new(view, window, cx))
+                    },
+                )
+                .unwrap();
+            ws.settings_handle = Some(handle);
+        });
+    }
 }
 
 fn open_output_window(

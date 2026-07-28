@@ -8,6 +8,7 @@ actions!(
     menu,
     [
         Quit,
+        Settings,
         About,
         Open,
         Close,
@@ -69,6 +70,7 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
             disabled: false,
             items: vec![
                 MenuItem::action(t!("menu.about"), About),
+                MenuItem::action(t!("menu.settings"), Settings),
                 language_menu(),
                 MenuItem::Separator,
                 MenuItem::action(t!("menu.quit"), Quit),

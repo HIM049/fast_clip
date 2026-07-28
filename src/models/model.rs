@@ -7,6 +7,7 @@ use crate::ui::player::model::AudioRail;
 
 pub struct WindowState {
     pub output_handle: Option<WindowHandle<Root>>,
+    pub settings_handle: Option<WindowHandle<Root>>,
     pub about_handle: Option<WindowHandle<Root>>,
 }
 
@@ -14,6 +15,7 @@ impl WindowState {
     pub fn default() -> Self {
         Self {
             output_handle: None,
+            settings_handle: None,
             about_handle: None,
         }
     }
@@ -21,6 +23,12 @@ impl WindowState {
     pub fn close_all(&mut self, cx: &mut App) {
         if let Some(h) = self.output_handle {
             h.update(cx, |_, w, cx| {
+                w.remove_window();
+            })
+            .unwrap();
+        }
+        if let Some(h) = self.settings_handle {
+            h.update(cx, |_, w, _| {
                 w.remove_window();
             })
             .unwrap();
