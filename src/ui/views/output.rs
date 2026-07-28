@@ -2,9 +2,10 @@ use std::path::{Path, PathBuf};
 
 use gpui::{AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div};
 use gpui_component::{
-    IndexPath, Sizable, StyledExt,
+    Disableable, IndexPath, StyledExt, WindowExt,
     button::{Button, ButtonVariants},
     checkbox::Checkbox,
+    dialog::Dialog,
     input::{Input, InputState},
     label::Label,
     select::{Select, SelectState},
@@ -124,74 +125,73 @@ impl Render for OutputView {
                 let path = self.output_path.to_string_lossy().into_owned();
                 i.set_value(path, w, cx);
             });
+            self.update_path = false;
         }
 
-        div()
-            .size_full()
-            .flex()
-            .v_flex()
-            .p_3()
-            .justify_between()
-            .child(
-                div()
-                    .flex()
-                    .v_flex()
-                    .gap_3()
-                    .child(
-                        div().w_full().child(Label::new(t!("output.path"))).child(
-                            div()
-                                .w_full()
-                                .flex()
-                                .h_flex()
-                                .child(Input::new(&self.input))
-                                .child(
-                                    Button::new("select")
-                                        .ghost()
-                                        .label("...")
-                                        .on_click(cx.listener(Self::listen_path)),
-                                ),
-                        ),
-                    )
-                    .child(
-                        div()
-                            .child(Label::new(t!("output.audio_track")))
-                            .child(Select::new(&self.audio_select)),
-                    )
-                    .child(
+        div().w_full().v_flex().gap_3().child(
+            div()
+                .flex()
+                .v_flex()
+                .gap_3()
+                .child(
+                    div().w_full().child(Label::new(t!("output.path"))).child(
                         div()
                             .w_full()
-                            // .child(Label::new("Output Path"))
+                            .flex()
+                            .h_flex()
+                            .child(Input::new(&self.input))
                             .child(
-                                Checkbox::new("checkbox")
-                                    .label(t!("output.copy_stream").to_string())
-                                    .checked(true)
-                                    .on_click(|_, _, _| {}),
+                                Button::new("select")
+                                    .ghost()
+                                    .label("...")
+                                    .on_click(cx.listener(Self::listen_path)),
                             ),
                     ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .justify_end()
-                    .gap_2()
-                    .child(
-                        Button::new("cancel")
-                            .small()
-                            .label(t!("common.actions.cancel"))
-                            .on_click(|_, w, _| {
-                                w.remove_window();
-                            }),
-                    )
-                    .child(
-                        Button::new("output")
-                            .small()
-                            .primary()
-                            .label(t!("output.title"))
-                            .on_click(cx.listener(|this, _, w, cx| {
-                                this.run_output(cx);
-                                w.remove_window();
-                            })),
-                    ),
-            )
+                )
+                .child(
+                    div()
+                        .child(Label::new(t!("output.audio_track")))
+                        .child(Select::new(&self.audio_select)),
+                )
+                .child(
+                    div()
+                        .w_full()
+                        // .child(Label::new("Output Path"))
+                        .child(
+                            Checkbox::new("checkbox")
+                                .label(t!("output.copy_stream").to_string())
+                                .checked(true)
+                                .disabled(true),
+                        ),
+                ),
+        )
     }
+}
+
+pub fn build_output_dialog(dialog: Dialog, output_view: Entity<OutputView>) -> Dialog {
+    let output = output_view.clone();
+    dialog
+        .title(t!("output.title"))
+        .overlay_closable(false)
+        .child(output_view)
+        .footer(
+            div()
+                .h_flex()
+                .justify_end()
+                .gap_2()
+                .child(
+                    Button::new("cancel")
+                        .label(t!("common.actions.cancel"))
+                        .on_click(|_, window, cx| window.close_dialog(cx)),
+                )
+                .child(
+                    Button::new("output")
+                        .primary()
+                        .label(t!("output.title"))
+                        .on_click(move |_, window, cx| {
+                            output.update(cx, |view, cx| view.run_output(cx));
+                            window.close_dialog(cx);
+                        }),
+                ),
+        )
 }

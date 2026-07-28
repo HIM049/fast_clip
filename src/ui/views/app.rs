@@ -6,7 +6,7 @@ use gpui::{
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Task, Window, div,
     prelude::FluentBuilder, px, rgba, svg,
 };
-use gpui_component::{ActiveTheme, Colorize, Root, StyledExt};
+use gpui_component::{ActiveTheme, Colorize, Root, StyledExt, WindowExt};
 
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
@@ -246,7 +246,10 @@ impl Render for MyApp {
         let notify_layer = Root::render_notification_layer(window, cx);
 
         if self.player.get_state() != PlayState::Stopped {
-            cx.focus_self(window);
+            if !window.has_active_dialog(cx) && !window.has_active_sheet(cx) {
+                cx.focus_self(window);
+            }
+
             cx.on_next_frame(window, |_, _, cx| {
                 cx.notify();
             });

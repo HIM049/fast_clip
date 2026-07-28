@@ -11,7 +11,7 @@ use crate::{
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
-        views::{self, app::MyApp, output::OutputView, settings::SettingsView},
+        views::{self, app::MyApp, settings::SettingsView},
     },
 };
 use reqwest_client;
@@ -90,8 +90,11 @@ fn main() {
             cx.quit();
         });
         cx.on_action(open_settings_window(window_state.clone()));
-        cx.on_action(open_about_window(app_window.clone()));
-        cx.on_action(open_output_window(window_state, params_entity.clone()));
+        cx.on_action(open_about_dialog(app_window.clone()));
+        cx.on_action(open_output_dialog(
+            app_window.clone(),
+            params_entity.clone(),
+        ));
         cx.on_action(move |_: &Open, cx| {
             let result = cx.prompt_for_paths(gpui::PathPromptOptions {
                 files: true,
@@ -200,53 +203,32 @@ fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings,
     }
 }
 
-fn open_output_window(
-    window_state: Entity<WindowState>,
+fn open_output_dialog(
+    window: AnyWindowHandle,
     params: Entity<OutputParams>,
 ) -> impl Fn(&Output, &mut App) {
     move |_: &Output, cx: &mut App| {
-        // if params are not all ready
         if !params.read(cx).all_some() {
             return;
         }
-        window_state.update(cx, |ws, cx| {
-            match active_window(cx, &mut ws.output_handle) {
-                Ok(_) => return,
-                Err(_) => (),
-            }
+        let params = params.clone();
+        cx.defer(move |cx| {
+            cx.update_window(window, move |_, w, cx| {
+                if w.has_active_dialog(cx) {
+                    return;
+                }
 
-            let window_bounds = Some(WindowBounds::Windowed(Bounds::centered(
-                None,
-                size(px(500.), px(300.)),
-                cx,
-            )));
-            let handle = cx
-                .open_window(
-                    WindowOptions {
-                        window_bounds,
-                        titlebar: Some(TitlebarOptions {
-                            title: Some(t!("output.title").into()),
-                            appears_transparent: false,
-                            traffic_light_position: None,
-                        }),
-                        focus: true,
-                        show: true,
-                        is_resizable: false,
-                        is_minimizable: false,
-                        ..Default::default()
-                    },
-                    |window, cx| {
-                        let view = cx.new(|cx| OutputView::new(window, cx, params.clone()));
-                        cx.new(|cx| Root::new(view, window, cx))
-                    },
-                )
-                .unwrap();
-            ws.output_handle = Some(handle);
+                let view = cx.new(|cx| views::output::OutputView::new(w, cx, params));
+                w.open_dialog(cx, move |dialog, _, _| {
+                    views::output::build_output_dialog(dialog, view.clone())
+                });
+            })
+            .unwrap();
         });
     }
 }
 
-fn open_about_window(window: AnyWindowHandle) -> impl Fn(&About, &mut App) {
+fn open_about_dialog(window: AnyWindowHandle) -> impl Fn(&About, &mut App) {
     move |_: &About, cx: &mut App| {
         cx.defer(move |cx| {
             cx.update_window(window, move |_, w, cx| {
