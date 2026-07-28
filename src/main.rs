@@ -1,5 +1,5 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
-use std::{path::PathBuf, sync::Arc};
+use std::{env, path::PathBuf, sync::Arc};
 
 use gpui::*;
 use gpui_component::*;
@@ -24,6 +24,11 @@ rust_i18n::i18n!("locales", fallback = "en");
 actions!([
     Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd, VolumeUp, VolumeDown
 ]);
+
+#[cfg(target_os = "macos")]
+static OUTPUT_KEY: &str = "cmd-s";
+#[cfg(not(target_os = "macos"))]
+static OUTPUT_KEY: &str = "ctrl-s";
 
 fn main() {
     ffmpeg_next::init().unwrap();
@@ -54,7 +59,7 @@ fn main() {
         cx.bind_keys([KeyBinding::new("up", VolumeUp, None)]);
         cx.bind_keys([KeyBinding::new("down", VolumeDown, None)]);
 
-        cx.bind_keys([KeyBinding::new("ctrl-s", Output, None)]);
+        cx.bind_keys([KeyBinding::new(OUTPUT_KEY, Output, None)]);
 
         cx.set_http_client(Arc::new(http));
         cx.open_window(
