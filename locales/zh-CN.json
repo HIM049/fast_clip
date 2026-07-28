@@ -1,0 +1,45 @@
+{
+  "_version": 1,
+  "common": {
+    "actions": {
+      "cancel": "取消",
+      "confirm": "确定"
+    }
+  },
+  "menu": {
+    "application": {
+      "about": "关于",
+      "settings": "设置",
+      "language": "语言",
+      "quit": "退出"
+    },
+    "file": {
+      "title": "文件",
+      "open": "打开",
+      "close": "关闭",
+      "export": "导出"
+    },
+    "player": {
+      "title": "播放器",
+      "audio_settings": "音频设置"
+    },
+    "editor": {
+      "title": "编辑器",
+      "clear_selected_range": "清除选区范围"
+    }
+  },
+  "output": {
+    "title": "导出",
+    "path": "输出路径",
+    "audio_track": "音频轨道",
+    "copy_stream": "复制流"
+  },
+  "player_settings": {
+    "title": "播放器设置",
+    "audio_track": "音频轨道"
+  },
+  "update_dialog": {
+    "title": "更新可用",
+    "description": "有新的更新可用，要打开 GitHub 发布页面吗？"
+  }
+}

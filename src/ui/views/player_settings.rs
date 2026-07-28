@@ -59,7 +59,7 @@ impl PlayerSettingsView {
             WindowOptions {
                 window_bounds,
                 titlebar: Some(TitlebarOptions {
-                    title: Some("Player Settings".into()),
+                    title: Some(t!("player_settings.title").into()),
                     appears_transparent: false,
                     traffic_light_position: None,
                 }),
@@ -94,7 +94,7 @@ impl Render for PlayerSettingsView {
             .child(
                 div().flex().v_flex().gap_3().child(
                     div()
-                        .child(Label::new(t!("ui.autio-rail")))
+                        .child(Label::new(t!("player_settings.audio_track")))
                         .child(Select::new(&self.audio_select)),
                 ),
             )
@@ -106,23 +106,27 @@ impl Render for PlayerSettingsView {
                     .child(
                         Button::new("cancel")
                             .small()
-                            .label("Cancel")
+                            .label(t!("common.actions.cancel"))
                             .on_click(|_, w, _| {
                                 w.remove_window();
                             }),
                     )
-                    .child(Button::new("apply").small().primary().label("Ok").on_click(
-                        cx.listener(|this, _, w, cx| {
-                            if let Some(v) = this.audio_select.read(cx).selected_value() {
-                                let v = v.clone();
-                                this.settings.update(cx, |s, cx| {
-                                    s.audio_ix = v;
-                                    cx.notify();
-                                })
-                            }
-                            w.remove_window();
-                        }),
-                    )),
+                    .child(
+                        Button::new("apply")
+                            .small()
+                            .primary()
+                            .label(t!("common.actions.confirm"))
+                            .on_click(cx.listener(|this, _, w, cx| {
+                                if let Some(v) = this.audio_select.read(cx).selected_value() {
+                                    let v = v.clone();
+                                    this.settings.update(cx, |s, cx| {
+                                        s.audio_ix = v;
+                                        cx.notify();
+                                    })
+                                }
+                                w.remove_window();
+                            })),
+                    ),
             )
     }
 }

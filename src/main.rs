@@ -142,8 +142,8 @@ fn main() {
                         w.open_alert_dialog(cx, move |alert, _, _| {
                             let url = url.clone();
                             alert
-                                .title(t!("dialog.update_dialog.title"))
-                                .description(t!("dialog.update_dialog.description"))
+                                .title(t!("update_dialog.title"))
+                                .description(t!("update_dialog.description"))
                                 .show_cancel(true)
                                 .on_ok(move |_, _, cx| {
                                     cx.open_url(url.as_ref());
@@ -175,7 +175,7 @@ fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings,
                     WindowOptions {
                         window_bounds,
                         titlebar: Some(TitlebarOptions {
-                            title: Some(t!("menu.settings").into()),
+                            title: Some(t!("menu.application.settings").into()),
                             appears_transparent: false,
                             traffic_light_position: None,
                         }),
@@ -219,7 +219,7 @@ fn open_output_window(
                     WindowOptions {
                         window_bounds,
                         titlebar: Some(TitlebarOptions {
-                            title: Some("Output".into()),
+                            title: Some(t!("output.title").into()),
                             appears_transparent: false,
                             traffic_light_position: None,
                         }),
@@ -259,7 +259,7 @@ fn open_about_window(window_state: Entity<WindowState>) -> impl Fn(&About, &mut 
                     WindowOptions {
                         window_bounds,
                         titlebar: Some(TitlebarOptions {
-                            title: Some("About".into()),
+                            title: Some(t!("menu.application.about").into()),
                             appears_transparent: false,
                             traffic_light_position: None,
                         }),

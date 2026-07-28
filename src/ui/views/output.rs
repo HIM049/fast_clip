@@ -138,7 +138,7 @@ impl Render for OutputView {
                     .v_flex()
                     .gap_3()
                     .child(
-                        div().w_full().child(Label::new("Output Path")).child(
+                        div().w_full().child(Label::new(t!("output.path"))).child(
                             div()
                                 .w_full()
                                 .flex()
@@ -154,7 +154,7 @@ impl Render for OutputView {
                     )
                     .child(
                         div()
-                            .child(Label::new(t!("ui.autio-rail")))
+                            .child(Label::new(t!("output.audio_track")))
                             .child(Select::new(&self.audio_select)),
                     )
                     .child(
@@ -163,7 +163,7 @@ impl Render for OutputView {
                             // .child(Label::new("Output Path"))
                             .child(
                                 Checkbox::new("checkbox")
-                                    .label(t!("ui.cp-stream").to_string())
+                                    .label(t!("output.copy_stream").to_string())
                                     .checked(true)
                                     .on_click(|_, _, _| {}),
                             ),
@@ -177,7 +177,7 @@ impl Render for OutputView {
                     .child(
                         Button::new("cancel")
                             .small()
-                            .label(t!("ui.cancel"))
+                            .label(t!("common.actions.cancel"))
                             .on_click(|_, w, _| {
                                 w.remove_window();
                             }),
@@ -186,7 +186,7 @@ impl Render for OutputView {
                         Button::new("output")
                             .small()
                             .primary()
-                            .label(t!("ui.output"))
+                            .label(t!("output.title"))
                             .on_click(cx.listener(|this, _, w, cx| {
                                 this.run_output(cx);
                                 w.remove_window();

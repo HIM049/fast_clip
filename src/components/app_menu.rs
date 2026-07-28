@@ -69,33 +69,36 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
             name: title.into(),
             disabled: false,
             items: vec![
-                MenuItem::action(t!("menu.about"), About),
-                MenuItem::action(t!("menu.settings"), Settings),
+                MenuItem::action(t!("menu.application.about"), About),
+                MenuItem::action(t!("menu.application.settings"), Settings),
                 language_menu(),
                 MenuItem::Separator,
-                MenuItem::action(t!("menu.quit"), Quit),
+                MenuItem::action(t!("menu.application.quit"), Quit),
             ],
         },
         Menu {
-            name: SharedString::from(t!("menu.file")),
+            name: SharedString::from(t!("menu.file.title")),
             disabled: false,
             items: vec![
-                MenuItem::action(t!("menu.open"), Open),
-                MenuItem::action(t!("menu.close"), Close),
+                MenuItem::action(t!("menu.file.open"), Open),
+                MenuItem::action(t!("menu.file.close"), Close),
                 MenuItem::Separator,
-                MenuItem::action(t!("menu.output"), Output),
+                MenuItem::action(t!("menu.file.export"), Output),
             ],
         },
         Menu {
-            name: SharedString::from(t!("menu.player")),
-            disabled: false,
-            items: vec![MenuItem::action(t!("menu.audio"), OpenPlayerSetting)],
-        },
-        Menu {
-            name: SharedString::from(t!("menu.editor")),
+            name: SharedString::from(t!("menu.player.title")),
             disabled: false,
             items: vec![MenuItem::action(
-                t!("menu.clear-selscted-range"),
+                t!("menu.player.audio_settings"),
+                OpenPlayerSetting,
+            )],
+        },
+        Menu {
+            name: SharedString::from(t!("menu.editor.title")),
+            disabled: false,
+            items: vec![MenuItem::action(
+                t!("menu.editor.clear_selected_range"),
                 ClearSelectedRange,
             )],
         },
@@ -127,7 +130,7 @@ fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuB
 fn language_menu() -> MenuItem {
     let locale = rust_i18n::locale().to_string();
     MenuItem::Submenu(Menu {
-        name: SharedString::from(t!("menu.language")),
+        name: SharedString::from(t!("menu.application.language")),
         disabled: false,
         items: vec![
             MenuItem::action("English", SelectLocale(Language::En.as_locale().into()))

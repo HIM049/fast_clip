@@ -1,0 +1,45 @@
+{
+  "_version": 1,
+  "common": {
+    "actions": {
+      "cancel": "Cancel",
+      "confirm": "OK"
+    }
+  },
+  "menu": {
+    "application": {
+      "about": "About",
+      "settings": "Settings",
+      "language": "Language",
+      "quit": "Quit"
+    },
+    "file": {
+      "title": "File",
+      "open": "Open",
+      "close": "Close",
+      "export": "Export"
+    },
+    "player": {
+      "title": "Player",
+      "audio_settings": "Audio Settings"
+    },
+    "editor": {
+      "title": "Editor",
+      "clear_selected_range": "Clear Selected Range"
+    }
+  },
+  "output": {
+    "title": "Export",
+    "path": "Output Path",
+    "audio_track": "Audio Track",
+    "copy_stream": "Copy Stream"
+  },
+  "player_settings": {
+    "title": "Player Settings",
+    "audio_track": "Audio Track"
+  },
+  "update_dialog": {
+    "title": "Update Available",
+    "description": "A new version of Fast Clip is available. Open the GitHub release page?"
+  }
+}
