@@ -11,7 +11,7 @@ use crate::{
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
-        views::{about::AboutView, app::MyApp, output::OutputView, settings::SettingsView},
+        views::{self, app::MyApp, output::OutputView, settings::SettingsView},
     },
 };
 use reqwest_client;
@@ -48,23 +48,14 @@ fn main() {
         rust_i18n::set_locale(&config.language.as_locale());
         let config_entity: Entity<AppConfig> = cx.new(|_| config);
         init_theme(cx);
+        bind_keys(cx);
 
         let size_entity = cx.new(|_cx| PlayerSize::new());
         let params_entity: Entity<OutputParams> = cx.new(|_| OutputParams::default());
         let window_state = cx.new(|_| WindowState::default());
 
-        cx.bind_keys([KeyBinding::new("space", SwitchPlay, None)]);
-        cx.bind_keys([KeyBinding::new("left", Back, None)]);
-        cx.bind_keys([KeyBinding::new("right", Forward, None)]);
-        cx.bind_keys([KeyBinding::new("[", SetStart, None)]);
-        cx.bind_keys([KeyBinding::new("]", SetEnd, None)]);
-        cx.bind_keys([KeyBinding::new("up", VolumeUp, None)]);
-        cx.bind_keys([KeyBinding::new("down", VolumeDown, None)]);
-
-        cx.bind_keys([KeyBinding::new(OUTPUT_KEY, Output, None)]);
-
         cx.set_http_client(Arc::new(http));
-        let app_window = cx
+        let app_window: AnyWindowHandle = cx
             .open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
@@ -92,13 +83,14 @@ fn main() {
                     cx.new(|cx| Root::new(view, window, cx))
                 },
             )
-            .unwrap();
+            .unwrap()
+            .into();
 
         cx.on_action(|_: &Quit, cx| {
             cx.quit();
         });
         cx.on_action(open_settings_window(window_state.clone()));
-        cx.on_action(open_about_window(window_state.clone()));
+        cx.on_action(open_about_window(app_window.clone()));
         cx.on_action(open_output_window(window_state, params_entity.clone()));
         cx.on_action(move |_: &Open, cx| {
             let result = cx.prompt_for_paths(gpui::PathPromptOptions {
@@ -128,34 +120,48 @@ fn main() {
             .detach();
         });
 
-        let app_window: AnyWindowHandle = app_window.into();
+        let app_window = app_window.clone();
         let http_client = cx.http_client().clone();
         cx.spawn(async move |cx| {
-            let Ok(result) = update::check_update(http_client).await else {
-                println!("Failed to check update");
-                return;
+            match update::check_update(http_client).await {
+                Ok(result) => {
+                    if let Some(url) = result {
+                        app_window
+                            .update(cx, move |_, w, cx| {
+                                w.open_alert_dialog(cx, move |alert, _, _| {
+                                    let url = url.clone();
+                                    alert
+                                        .title(t!("update_dialog.title"))
+                                        .description(t!("update_dialog.description"))
+                                        .show_cancel(true)
+                                        .on_ok(move |_, _, cx| {
+                                            cx.open_url(url.as_ref());
+                                            true
+                                        })
+                                });
+                            })
+                            .unwrap();
+                    }
+                }
+                Err(e) => {
+                    println!("Failed to check update: {}", e);
+                    return;
+                }
             };
-
-            if let Some(url) = result {
-                app_window
-                    .update(cx, move |_, w, cx| {
-                        w.open_alert_dialog(cx, move |alert, _, _| {
-                            let url = url.clone();
-                            alert
-                                .title(t!("update_dialog.title"))
-                                .description(t!("update_dialog.description"))
-                                .show_cancel(true)
-                                .on_ok(move |_, _, cx| {
-                                    cx.open_url(url.as_ref());
-                                    true
-                                })
-                        });
-                    })
-                    .unwrap();
-            }
         })
         .detach();
     });
+}
+
+fn bind_keys(cx: &mut App) {
+    cx.bind_keys([KeyBinding::new("space", SwitchPlay, None)]);
+    cx.bind_keys([KeyBinding::new("left", Back, None)]);
+    cx.bind_keys([KeyBinding::new("right", Forward, None)]);
+    cx.bind_keys([KeyBinding::new("[", SetStart, None)]);
+    cx.bind_keys([KeyBinding::new("]", SetEnd, None)]);
+    cx.bind_keys([KeyBinding::new("up", VolumeUp, None)]);
+    cx.bind_keys([KeyBinding::new("down", VolumeDown, None)]);
+    cx.bind_keys([KeyBinding::new(OUTPUT_KEY, Output, None)]);
 }
 
 fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings, &mut App) {
@@ -240,42 +246,13 @@ fn open_output_window(
     }
 }
 
-fn open_about_window(window_state: Entity<WindowState>) -> impl Fn(&About, &mut App) {
+fn open_about_window(window: AnyWindowHandle) -> impl Fn(&About, &mut App) {
     move |_: &About, cx: &mut App| {
-        window_state.update(cx, |ws, cx| {
-            match active_window(cx, &mut ws.about_handle) {
-                Ok(_) => return,
-                Err(_) => (),
-            }
-
-            let window_bounds = Some(WindowBounds::Windowed(Bounds::centered(
-                None,
-                size(px(400.), px(300.)),
-                cx,
-            )));
-
-            let handle = cx
-                .open_window(
-                    WindowOptions {
-                        window_bounds,
-                        titlebar: Some(TitlebarOptions {
-                            title: Some(t!("menu.application.about").into()),
-                            appears_transparent: false,
-                            traffic_light_position: None,
-                        }),
-                        focus: true,
-                        show: true,
-                        is_resizable: false,
-                        is_minimizable: false,
-                        ..Default::default()
-                    },
-                    |window, cx| {
-                        let view = cx.new(|_| AboutView);
-                        cx.new(|cx| Root::new(view, window, cx))
-                    },
-                )
-                .unwrap();
-            ws.about_handle = Some(handle)
+        cx.defer(move |cx| {
+            cx.update_window(window, move |_, w, cx| {
+                w.open_dialog(cx, move |dialog, _, _| views::about::build_about(dialog));
+            })
+            .unwrap();
         });
     }
 }

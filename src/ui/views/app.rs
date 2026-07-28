@@ -242,6 +242,8 @@ impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bg_color = cx.theme().background.darken(0.5);
         let dialog_layer = Root::render_dialog_layer(window, cx);
+        let sheet_layer = Root::render_sheet_layer(window, cx);
+        let notify_layer = Root::render_notification_layer(window, cx);
 
         if self.player.get_state() != PlayState::Stopped {
             cx.focus_self(window);
@@ -307,6 +309,8 @@ impl Render for MyApp {
                     ),
             )
             .children(dialog_layer)
+            .children(sheet_layer)
+            .children(notify_layer)
     }
 }
 

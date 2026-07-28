@@ -3,7 +3,7 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Transformation,
-    Window, div, percentage, prelude::FluentBuilder, radians, rgba, svg,
+    Window, div, percentage, prelude::FluentBuilder, rgba, svg,
 };
 use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
