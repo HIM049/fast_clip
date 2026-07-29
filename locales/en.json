@@ -39,6 +39,40 @@
     "title": "Player Settings",
     "audio_track": "Audio Track"
   },
+  "settings": {
+    "general": "General",
+    "groups": {
+      "application": "Application",
+      "player": "Player",
+      "control": "Controls"
+    },
+    "check_update": {
+      "title": "Check for Updates",
+      "description": "Remind when a new update is available."
+    },
+    "gpu_policy": {
+      "title": "GPU Policy",
+      "description": "Choose the GPU usage policy.",
+      "auto": "Auto",
+      "software_only": "Software Only",
+      "prefer_integrated": "Prefer Integrated GPU",
+      "prefer_discrete": "Prefer Discrete GPU"
+    },
+    "seek_mode": {
+      "title": "Seek Mode",
+      "description": "Choose whether seeking uses a percentage or a fixed number of seconds.",
+      "percent": "Percentage",
+      "seconds": "Seconds"
+    },
+    "seek_percent": {
+      "title": "Seek Percentage",
+      "description": "Percentage to skip when seeking forward or backward."
+    },
+    "seek_seconds": {
+      "title": "Seek Seconds",
+      "description": "Seconds to skip when seeking forward or backward."
+    }
+  },
   "update_dialog": {
     "title": "Update Available",
     "description": "A new version of Fast Clip is available. Open the GitHub release page?"

@@ -1,113 +1,175 @@
-use gpui::{App, Context, IntoElement, Render, SharedString, px};
+use gpui::{App, BorrowAppContext, Context, IntoElement, Render, SharedString, px};
 use gpui_component::setting::{
     NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings,
 };
+use rust_i18n::t;
+use strum::IntoEnumIterator;
 
-pub struct SettingsView {
-    check_update: bool,
-    gpu_policy: SharedString,
-    seek_step_seconds: f64,
-    working_directory: SharedString,
-}
+use crate::config::{AppConfig, GpuPolicy, StepMode};
+
+pub struct SettingsView;
 
 impl SettingsView {
-    pub fn new(_: &mut Context<Self>) -> Self {
-        Self {
-            check_update: true,
-            gpu_policy: "Standard".into(),
-            seek_step_seconds: 5.0,
-            working_directory: String::new().into(),
-        }
+    pub fn new() -> Self {
+        Self
     }
 }
 
 impl Render for SettingsView {
     fn render(&mut self, _: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let view = cx.entity();
-        let notification_view = view.clone();
-        let density_view = view.clone();
-        let seek_step_view = view.clone();
-        let directory_view = view.clone();
-
         Settings::new("app-settings")
             .sidebar_width(px(100.))
-            .pages(vec![SettingPage::new("General").default_open(true).group(
-                SettingGroup::new().items(vec![
-                        SettingItem::new(
-                            "Check Update",
-                            SettingField::switch(
-                                move |cx: &App| notification_view.read(cx).check_update,
-                                {
-                                    let view = view.clone();
-                                    move |enabled: bool, cx: &mut App| {
-                                        view.update(cx, |settings, cx| {
-                                            settings.check_update = enabled;
-                                            cx.notify();
-                                        });
-                                    }
-                                },
-                            ),
-                        )
-                        .description("Remind when a new update is available."),
-                        SettingItem::new(
-                            "GPU Policy",
-                            SettingField::dropdown(
-                                vec![
-                                    ("Software Only".into(), "Software Only".into()),
-                                    ("Prefer Integrated GPU".into(), "integrated".into()),
-                                    ("Prefer Discrete GPU".into(), "discrete".into()),
-                                ],
-                                move |cx: &App| density_view.read(cx).gpu_policy.clone(),
-                                {
-                                    let view = view.clone();
-                                    move |density: SharedString, cx: &mut App| {
-                                        view.update(cx, |settings, cx| {
-                                            settings.gpu_policy = density;
-                                            cx.notify();
-                                        });
-                                    }
-                                },
-                            ),
-                        )
-                        .description("Choose the policy of GPU useage."),
-                        SettingItem::new(
-                            "Seek Step",
-                            SettingField::number_input(
-                                NumberFieldOptions {
-                                    min: 1.0,
-                                    max: 600.0,
-                                    step: 1.0,
-                                },
-                                move |cx: &App| seek_step_view.read(cx).seek_step_seconds,
-                                {
-                                    let view = view.clone();
-                                    move |step: f64, cx: &mut App| {
-                                        view.update(cx, |settings, cx| {
-                                            settings.seek_step_seconds = step;
-                                            cx.notify();
-                                        });
-                                    }
-                                },
-                            ),
-                        )
-                        .description("Seconds to skip when seeking forward or backward."),
-                        // SettingItem::new(
-                        //     "Working directory",
-                        //     SettingField::input(
-                        //         move |cx: &App| directory_view.read(cx).working_directory.clone(),
-                        //         {
-                        //             let view = view.clone();
-                        //             move |directory: SharedString, cx: &mut App| {
-                        //                 view.update(cx, |settings, cx| {
-                        //                     settings.working_directory = directory;
-                        //                     cx.notify();
-                        //                 });
-                        //             }
-                        //         },
-                        //     ),
-                        // )
-                        // .description("Used only as a temporary example value."),
-                    ]),
-            )])
+            .pages(vec![
+                SettingPage::new(text("settings.general"))
+                    .default_open(true)
+                    .group(
+                        SettingGroup::new()
+                            .title(text("settings.groups.application"))
+                            .items(build_general_group()),
+                    )
+                    .group(
+                        SettingGroup::new()
+                            .title(text("settings.groups.player"))
+                            .items(build_player_group()),
+                    )
+                    .group(
+                        SettingGroup::new()
+                            .title(text("settings.groups.control"))
+                            .items(build_control_group()),
+                    ),
+            ])
     }
+}
+
+fn build_general_group() -> Vec<SettingItem> {
+    vec![
+        SettingItem::new(
+            text("settings.check_update.title"),
+            SettingField::switch(
+                move |cx: &App| cx.global::<AppConfig>().check_update,
+                move |enabled: bool, cx: &mut App| {
+                    cx.update_global(|g: &mut AppConfig, _| {
+                        g.check_update = enabled;
+                        g.save();
+                    });
+                },
+            ),
+        )
+        .description(text("settings.check_update.description")),
+    ]
+}
+
+fn build_player_group() -> Vec<SettingItem> {
+    vec![
+        SettingItem::new(
+            text("settings.gpu_policy.title"),
+            SettingField::dropdown(
+                GpuPolicy::iter()
+                    .map(|policy| (policy.value().into(), text(policy.i18n_key())))
+                    .collect(),
+                move |cx: &App| cx.global::<AppConfig>().gpu_policy.value().into(),
+                {
+                    move |gpu_policy: SharedString, cx: &mut App| {
+                        let Some(gpu_policy) = GpuPolicy::from_value(gpu_policy.as_ref()) else {
+                            return;
+                        };
+                        cx.update_global(|g: &mut AppConfig, _| {
+                            g.gpu_policy = gpu_policy;
+                            g.save();
+                        });
+                    }
+                },
+            ),
+        )
+        .description(text("settings.gpu_policy.description")),
+    ]
+}
+
+fn build_control_group() -> Vec<SettingItem> {
+    vec![
+        SettingItem::new(
+            text("settings.seek_mode.title"),
+            SettingField::dropdown(
+                vec![
+                    (
+                        StepMode::Percent.value().into(),
+                        text("settings.seek_mode.percent"),
+                    ),
+                    (
+                        StepMode::Second.value().into(),
+                        text("settings.seek_mode.seconds"),
+                    ),
+                ],
+                move |cx: &App| cx.global::<AppConfig>().step_mode.value().into(),
+                move |step_mode: SharedString, cx: &mut App| {
+                    let Some(step_mode) = StepMode::from_value(step_mode.as_ref()) else {
+                        return;
+                    };
+                    cx.update_global(|g: &mut AppConfig, _| {
+                        g.step_mode = step_mode;
+                        g.save();
+                    });
+                },
+            ),
+        )
+        .description(text("settings.seek_mode.description")),
+        SettingItem::new(
+            text("settings.seek_percent.title"),
+            SettingField::number_input(
+                NumberFieldOptions {
+                    min: 0.1,
+                    max: 100.0,
+                    step: 1.0,
+                },
+                move |cx: &App| cx.global::<AppConfig>().step_percent * 100.,
+                {
+                    move |step: f64, cx: &mut App| {
+                        cx.update_global(|g: &mut AppConfig, _| {
+                            g.step_percent = step / 100.;
+                            g.save();
+                        });
+                    }
+                },
+            ),
+        )
+        .description(text("settings.seek_percent.description")),
+        SettingItem::new(
+            text("settings.seek_seconds.title"),
+            SettingField::number_input(
+                NumberFieldOptions {
+                    min: 0.1,
+                    max: 600.0,
+                    step: 0.1,
+                },
+                move |cx: &App| cx.global::<AppConfig>().step_sec,
+                move |step: f64, cx: &mut App| {
+                    cx.update_global(|g: &mut AppConfig, _| {
+                        g.step_sec = step;
+                        g.save();
+                    });
+                },
+            ),
+        )
+        .description(text("settings.seek_seconds.description")),
+        // SettingItem::new(
+        //     "Working directory",
+        //     SettingField::input(
+        //         move |cx: &App| directory_view.read(cx).working_directory.clone(),
+        //         {
+        //             let view = view.clone();
+        //             move |directory: SharedString, cx: &mut App| {
+        //                 view.update(cx, |settings, cx| {
+        //                     settings.working_directory = directory;
+        //                     cx.notify();
+        //                 });
+        //             }
+        //         },
+        //     ),
+        // )
+        // .description("Used only as a temporary example value."),
+    ]
+}
+
+fn text(key: &str) -> SharedString {
+    t!(key).to_string().into()
 }

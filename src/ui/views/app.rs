@@ -14,6 +14,7 @@ use crate::{
         app_menu::{ClearSelectedRange, Close, OpenPlayerSetting},
         app_title_bar::AppTitleBar,
     },
+    config::AppConfig,
     models::model::OutputParams,
     ui::{
         button::RoundButton,
@@ -528,11 +529,15 @@ fn on_switch(this: &mut MyApp, _: &SwitchPlay, _: &mut Window, cx: &mut Context<
     cx.notify();
 }
 fn on_back(this: &mut MyApp, _: &Back, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.seek_player(|now, dur| now - dur / 120.);
+    let config = cx.global::<AppConfig>();
+    this.player
+        .seek_player(|now, duration| config.handle_seek(now, duration, false));
     cx.notify();
 }
 fn on_foward(this: &mut MyApp, _: &Forward, _: &mut Window, cx: &mut Context<MyApp>) {
-    this.player.seek_player(|now, dur| now + dur / 120.);
+    let config = cx.global::<AppConfig>();
+    this.player
+        .seek_player(|now, duration| config.handle_seek(now, duration, true));
     cx.notify();
 }
 

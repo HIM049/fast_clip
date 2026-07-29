@@ -7,6 +7,8 @@ use gpui::{
     http_client::{AsyncBody, HttpClient},
     *,
 };
+use gpui_component::WindowExt;
+use rust_i18n::t;
 use semver::Version;
 use serde_json::Value;
 
@@ -53,4 +55,22 @@ pub async fn check_update(
     } else {
         Ok(None)
     }
+}
+
+pub fn show_update_dialog(app_window: AnyWindowHandle, url: SharedString, cx: &mut AsyncApp) {
+    app_window
+        .update(cx, move |_, window, cx| {
+            window.open_alert_dialog(cx, move |alert, _, _| {
+                let url = url.clone();
+                alert
+                    .title(t!("update_dialog.title"))
+                    .description(t!("update_dialog.description"))
+                    .show_cancel(true)
+                    .on_ok(move |_, _, cx| {
+                        cx.open_url(url.as_ref());
+                        true
+                    })
+            });
+        })
+        .unwrap();
 }

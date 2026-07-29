@@ -31,7 +31,7 @@ A simple video editor, helps you create clips fastly.
   - [ ] Output result
   - [ ] Config window
     - [ ] Decoder config
-    - [ ] seek config
+    - [x] seek config
   - RELEASE 1.0
 
 - version 2.0

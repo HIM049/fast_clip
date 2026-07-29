@@ -39,6 +39,40 @@
     "title": "播放器设置",
     "audio_track": "音频轨道"
   },
+  "settings": {
+    "general": "常规",
+    "groups": {
+      "application": "软件设定",
+      "player": "播放器",
+      "control": "控制"
+    },
+    "check_update": {
+      "title": "检查更新",
+      "description": "有新版本可用时提醒。"
+    },
+    "gpu_policy": {
+      "title": "GPU 策略",
+      "description": "选择 GPU 使用策略。",
+      "auto": "自动",
+      "software_only": "仅软件渲染",
+      "prefer_integrated": "优先使用集成显卡",
+      "prefer_discrete": "优先使用独立显卡"
+    },
+    "seek_mode": {
+      "title": "跳转模式",
+      "description": "选择按百分比或固定秒数跳转。",
+      "percent": "百分比",
+      "seconds": "秒数"
+    },
+    "seek_percent": {
+      "title": "跳转百分比",
+      "description": "前进或后退时跳过的视频百分比。"
+    },
+    "seek_seconds": {
+      "title": "跳转秒数",
+      "description": "前进或后退时跳过的秒数。"
+    }
+  },
   "update_dialog": {
     "title": "更新可用",
     "description": "有新的更新可用，要打开 GitHub 发布页面吗？"

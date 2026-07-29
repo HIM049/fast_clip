@@ -125,36 +125,18 @@ fn main() {
             .detach();
         });
 
-        let app_window = app_window.clone();
-        let http_client = cx.http_client().clone();
-        cx.spawn(async move |cx| {
-            match update::check_update(http_client).await {
-                Ok(result) => {
-                    if let Some(url) = result {
-                        app_window
-                            .update(cx, move |_, w, cx| {
-                                w.open_alert_dialog(cx, move |alert, _, _| {
-                                    let url = url.clone();
-                                    alert
-                                        .title(t!("update_dialog.title"))
-                                        .description(t!("update_dialog.description"))
-                                        .show_cancel(true)
-                                        .on_ok(move |_, _, cx| {
-                                            cx.open_url(url.as_ref());
-                                            true
-                                        })
-                                });
-                            })
-                            .unwrap();
-                    }
-                }
-                Err(e) => {
-                    println!("Failed to check update: {}", e);
-                    return;
-                }
-            };
-        })
-        .detach();
+        if cx.global::<AppConfig>().check_update {
+            let app_window = app_window.clone();
+            let http_client = cx.http_client().clone();
+            cx.spawn(
+                async move |cx| match update::check_update(http_client).await {
+                    Ok(Some(url)) => update::show_update_dialog(app_window, url, cx),
+                    Ok(None) => {}
+                    Err(error) => eprintln!("failed to check for updates: {error}"),
+                },
+            )
+            .detach();
+        }
     });
 }
 
@@ -195,7 +177,7 @@ fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings,
                         ..Default::default()
                     },
                     |window, cx| {
-                        let view = cx.new(SettingsView::new);
+                        let view = cx.new(|_| SettingsView::new());
                         cx.new(|cx| Root::new(view, window, cx))
                     },
                 )
