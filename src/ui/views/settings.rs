@@ -1,11 +1,18 @@
-use gpui::{App, BorrowAppContext, Context, IntoElement, Render, SharedString, px};
-use gpui_component::setting::{
-    NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings,
+use gpui::{
+    AnyWindowHandle, App, AppContext, BorrowAppContext, Context, IntoElement, ParentElement,
+    Render, SharedString, Styled, Window, div, px, rgb,
+};
+use gpui_component::{
+    Icon, Root, WindowExt,
+    notification::{Notification, NotificationType},
+    setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
 };
 use rust_i18n::t;
 use strum::IntoEnumIterator;
 
 use crate::config::{AppConfig, GpuPolicy, StepMode};
+
+struct SettingsSaveNotification;
 
 pub struct SettingsView;
 
@@ -16,41 +23,49 @@ impl SettingsView {
 }
 
 impl Render for SettingsView {
-    fn render(&mut self, _: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
-        Settings::new("app-settings")
-            .sidebar_width(px(100.))
-            .pages(vec![
-                SettingPage::new(text("settings.general"))
-                    .default_open(true)
-                    .group(
-                        SettingGroup::new()
-                            .title(text("settings.groups.application"))
-                            .items(build_general_group()),
-                    )
-                    .group(
-                        SettingGroup::new()
-                            .title(text("settings.groups.player"))
-                            .items(build_player_group()),
-                    )
-                    .group(
-                        SettingGroup::new()
-                            .title(text("settings.groups.control"))
-                            .items(build_control_group()),
-                    ),
-            ])
+    fn render(&mut self, w: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let notify_layer = render_notification_layer(w, cx);
+        let window_handler = w.window_handle();
+
+        div()
+            .size_full()
+            .child(
+                Settings::new("app-settings")
+                    .sidebar_width(px(100.))
+                    .pages(vec![
+                        SettingPage::new(text("settings.general"))
+                            .default_open(true)
+                            .group(
+                                SettingGroup::new()
+                                    .title(text("settings.groups.application"))
+                                    .items(build_general_group(window_handler)),
+                            )
+                            .group(
+                                SettingGroup::new()
+                                    .title(text("settings.groups.player"))
+                                    .items(build_player_group(window_handler)),
+                            )
+                            .group(
+                                SettingGroup::new()
+                                    .title(text("settings.groups.control"))
+                                    .items(build_control_group(window_handler)),
+                            ),
+                    ]),
+            )
+            .children(notify_layer)
     }
 }
 
-fn build_general_group() -> Vec<SettingItem> {
+fn build_general_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
     vec![
         SettingItem::new(
             text("settings.check_update.title"),
             SettingField::switch(
                 move |cx: &App| cx.global::<AppConfig>().check_update,
                 move |enabled: bool, cx: &mut App| {
-                    cx.update_global(|g: &mut AppConfig, _| {
+                    cx.update_global(|g: &mut AppConfig, cx| {
                         g.check_update = enabled;
-                        g.save();
+                        push_result_notify(cx, window_handler, g.save());
                     });
                 },
             ),
@@ -59,7 +74,7 @@ fn build_general_group() -> Vec<SettingItem> {
     ]
 }
 
-fn build_player_group() -> Vec<SettingItem> {
+fn build_player_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
     vec![
         SettingItem::new(
             text("settings.gpu_policy.title"),
@@ -73,9 +88,9 @@ fn build_player_group() -> Vec<SettingItem> {
                         let Some(gpu_policy) = GpuPolicy::from_value(gpu_policy.as_ref()) else {
                             return;
                         };
-                        cx.update_global(|g: &mut AppConfig, _| {
+                        cx.update_global(|g: &mut AppConfig, cx| {
                             g.gpu_policy = gpu_policy;
-                            g.save();
+                            push_result_notify(cx, window_handler, g.save());
                         });
                     }
                 },
@@ -85,7 +100,7 @@ fn build_player_group() -> Vec<SettingItem> {
     ]
 }
 
-fn build_control_group() -> Vec<SettingItem> {
+fn build_control_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
     vec![
         SettingItem::new(
             text("settings.seek_mode.title"),
@@ -105,9 +120,9 @@ fn build_control_group() -> Vec<SettingItem> {
                     let Some(step_mode) = StepMode::from_value(step_mode.as_ref()) else {
                         return;
                     };
-                    cx.update_global(|g: &mut AppConfig, _| {
+                    cx.update_global(|g: &mut AppConfig, cx| {
                         g.step_mode = step_mode;
-                        g.save();
+                        push_result_notify(cx, window_handler, g.save());
                     });
                 },
             ),
@@ -124,9 +139,9 @@ fn build_control_group() -> Vec<SettingItem> {
                 move |cx: &App| cx.global::<AppConfig>().step_percent * 100.,
                 {
                     move |step: f64, cx: &mut App| {
-                        cx.update_global(|g: &mut AppConfig, _| {
+                        cx.update_global(|g: &mut AppConfig, cx| {
                             g.step_percent = step / 100.;
-                            g.save();
+                            push_result_notify(cx, window_handler, g.save());
                         });
                     }
                 },
@@ -143,9 +158,9 @@ fn build_control_group() -> Vec<SettingItem> {
                 },
                 move |cx: &App| cx.global::<AppConfig>().step_sec,
                 move |step: f64, cx: &mut App| {
-                    cx.update_global(|g: &mut AppConfig, _| {
+                    cx.update_global(|g: &mut AppConfig, cx| {
                         g.step_sec = step;
-                        g.save();
+                        push_result_notify(cx, window_handler, g.save());
                     });
                 },
             ),
@@ -172,4 +187,42 @@ fn build_control_group() -> Vec<SettingItem> {
 
 fn text(key: &str) -> SharedString {
     t!(key).to_string().into()
+}
+
+fn push_result_notify(
+    cx: &mut App,
+    window_handler: AnyWindowHandle,
+    result: Option<anyhow::Error>,
+) {
+    let notify = if let Some(r) = result {
+        Notification::error(SharedString::new(format!("Failed to Save: {}", r)))
+            .id::<SettingsSaveNotification>()
+            .with_type(NotificationType::Error)
+    } else {
+        Notification::success(SharedString::new("Settings Saved"))
+            .id::<SettingsSaveNotification>()
+            .with_type(NotificationType::Success)
+    };
+
+    cx.defer(move |cx| {
+        cx.update_window(window_handler, |_, w, cx| {
+            w.push_notification(notify.w(px(260.)), cx);
+        })
+        .unwrap();
+    });
+}
+
+fn render_notification_layer(window: &Window, cx: &mut App) -> Option<impl IntoElement> {
+    let root = window.root::<Root>()??;
+
+    Some(
+        div()
+            .absolute()
+            .top_0()
+            .left_0()
+            .w_full()
+            .flex()
+            .justify_center()
+            .child(root.read(cx).notification.clone()),
+    )
 }

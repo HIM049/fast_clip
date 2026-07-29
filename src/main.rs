@@ -227,8 +227,11 @@ fn init_theme(cx: &mut App) {
     let theme_name = SharedString::from("macOS Classic Dark");
 
     if let Err(err) = ThemeRegistry::watch_dir(PathBuf::from("./themes"), cx, move |cx| {
-        if let Some(theme) = ThemeRegistry::global(cx).themes().get(&theme_name).cloned() {
-            Theme::global_mut(cx).apply_config(&theme);
+        if let Some(theme_cfg) = ThemeRegistry::global(cx).themes().get(&theme_name).cloned() {
+            let theme = Theme::global_mut(cx);
+            theme.apply_config(&theme_cfg);
+            theme.notification.placement = Anchor::TopCenter;
+            theme.notification.max_items = 1;
         }
     }) {
         println!("error when init theme: {}", err);
