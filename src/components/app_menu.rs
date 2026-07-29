@@ -1,8 +1,8 @@
-use gpui::{Action, App, Entity, Menu, MenuItem, SharedString, actions};
+use gpui::{Action, App, BorrowAppContext, Entity, Menu, MenuItem, SharedString, actions};
 use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::config::{self as config_store, AppConfig, Language};
+use crate::config::{self, AppConfig, Language};
 
 actions!(
     menu,
@@ -22,11 +22,7 @@ actions!(
 #[action(namespace = menu, no_json)]
 pub struct SelectLocale(pub SharedString);
 
-pub fn init(
-    title: impl Into<SharedString>,
-    config: Entity<AppConfig>,
-    cx: &mut App,
-) -> Entity<AppMenuBar> {
+pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
     let title: SharedString = title.into();
     update_app_menu(title.clone(), app_menu_bar.clone(), cx);
@@ -34,14 +30,14 @@ pub fn init(
     cx.on_action({
         let title = title.clone();
         let app_menu_bar = app_menu_bar.clone();
-        let config = config.clone();
         move |s: &SelectLocale, cx: &mut App| {
             let locale = s.0.as_str();
             rust_i18n::set_locale(locale);
             if let Some(language) = Language::from_locale(locale) {
-                config.update(cx, |app_config, _| {
-                    app_config.language = language;
-                    if let Err(err) = config_store::save(app_config) {
+                cx.update_global(|g: &mut AppConfig, _| {
+                    g.language = language;
+                    // TODO: handle auto save in config
+                    if let Err(err) = config::save(g) {
                         println!("failed to save config: {}", err);
                     }
                 });

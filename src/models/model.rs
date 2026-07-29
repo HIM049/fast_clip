@@ -54,3 +54,5 @@ impl OutputParams {
             && self.audio_rails.is_some()
     }
 }
+
+pub struct player_state {}

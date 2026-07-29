@@ -44,11 +44,14 @@ fn main() {
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
-        let config = config::load();
-        rust_i18n::set_locale(&config.language.as_locale());
-        let config_entity: Entity<AppConfig> = cx.new(|_| config);
         init_theme(cx);
         bind_keys(cx);
+
+        let config = config::load();
+        rust_i18n::set_locale(&config.language.as_locale());
+        cx.set_global(config);
+
+        // let config_entity: Entity<AppConfig> = cx.new(|_| config);
 
         let size_entity = cx.new(|_cx| PlayerSize::new());
         let params_entity: Entity<OutputParams> = cx.new(|_| OutputParams::default());
@@ -77,12 +80,7 @@ fn main() {
                             cx.quit();
                         })
                         .detach();
-                        MyApp::new(
-                            cx,
-                            size_entity,
-                            params_entity.clone(),
-                            config_entity.clone(),
-                        )
+                        MyApp::new(cx, size_entity, params_entity.clone())
                     });
                     cx.new(|cx| Root::new(view, window, cx))
                 },

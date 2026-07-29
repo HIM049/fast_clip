@@ -1,5 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
+use gpui::Global;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +34,8 @@ impl Default for AppConfig {
         }
     }
 }
+
+impl Global for AppConfig {}
 
 pub fn load() -> AppConfig {
     let Ok(path) = config_path() else {

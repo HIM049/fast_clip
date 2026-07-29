@@ -23,13 +23,9 @@ pub struct AppTitleBar {
 }
 
 impl AppTitleBar {
-    pub fn new(
-        title: impl Into<SharedString>,
-        config: Entity<AppConfig>,
-        cx: &mut Context<Self>,
-    ) -> Self {
+    pub fn new(title: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
         Self {
-            app_menu: app_menu::init(title, config, cx),
+            app_menu: app_menu::init(title, cx),
             // child: Rc::new(|_, _| div().into_any_element()),
         }
     }
