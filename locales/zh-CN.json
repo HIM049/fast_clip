@@ -21,7 +21,8 @@
     },
     "player": {
       "title": "播放器",
-      "audio_settings": "音频设置"
+      "audio_settings": "音频设置",
+      "unnamed_rail": "未命名"
     },
     "editor": {
       "title": "编辑器",

@@ -9,7 +9,7 @@ use gpui_component::{
     ActiveTheme, Icon, IconName, InteractiveElementExt, Sizable, h_flex, menu::AppMenuBar,
 };
 
-use crate::{components::app_menu, config::AppConfig};
+use crate::{components::app_menu, ui::views::player_settings::PlayerSettings};
 
 pub const TITLE_BAR_HEIGHT: Pixels = px(34.);
 #[cfg(target_os = "macos")]
@@ -23,9 +23,13 @@ pub struct AppTitleBar {
 }
 
 impl AppTitleBar {
-    pub fn new(title: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        cx: &mut Context<Self>,
+        title: impl Into<SharedString>,
+        player_settings: Entity<PlayerSettings>,
+    ) -> Self {
         Self {
-            app_menu: app_menu::init(title, cx),
+            app_menu: app_menu::init(cx, title, player_settings),
             // child: Rc::new(|_, _| div().into_any_element()),
         }
     }

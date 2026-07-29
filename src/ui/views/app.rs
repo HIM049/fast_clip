@@ -54,9 +54,9 @@ impl MyApp {
         size_entity: Entity<PlayerSize>,
         param_entity: Entity<OutputParams>,
     ) -> Self {
-        let title_bar = cx.new(|cx| AppTitleBar::new("FastClip", cx));
-        let focus_handle = cx.focus_handle();
         let settings = cx.new(|_| PlayerSettings::default());
+        let title_bar = cx.new(|cx| AppTitleBar::new(cx, "FastClip", settings.clone()));
+        let focus_handle = cx.focus_handle();
         Self::listen_open(&param_entity, cx);
         Self::listen_settings(&settings, cx);
 
@@ -90,9 +90,10 @@ impl MyApp {
         if let (Some(audio_ix), Some(audio_rails)) =
             (params.audio_stream_ix, params.audio_rails.clone())
         {
-            self.settings.update(cx, |s, _| {
+            self.settings.update(cx, |s, cx| {
                 s.audio_ix = audio_ix;
                 s.audio_rails = audio_rails;
+                cx.notify();
             });
         }
         cx.notify();

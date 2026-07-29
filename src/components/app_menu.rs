@@ -2,7 +2,10 @@ use gpui::{Action, App, BorrowAppContext, Entity, Menu, MenuItem, SharedString, 
 use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::config::{self, AppConfig, Language};
+use crate::{
+    config::{self, AppConfig, Language},
+    ui::views::player_settings::PlayerSettings,
+};
 
 actions!(
     menu,
@@ -22,14 +25,28 @@ actions!(
 #[action(namespace = menu, no_json)]
 pub struct SelectLocale(pub SharedString);
 
-pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> {
+#[derive(Action, Clone, PartialEq, Eq)]
+#[action(namespace = menu, no_json)]
+pub struct SelectAudioRail(pub usize);
+
+pub fn init(
+    cx: &mut App,
+    title: impl Into<SharedString>,
+    player_settings: Entity<PlayerSettings>,
+) -> Entity<AppMenuBar> {
     let app_menu_bar = AppMenuBar::new(cx);
     let title: SharedString = title.into();
-    update_app_menu(title.clone(), app_menu_bar.clone(), cx);
+    update_app_menu(
+        title.clone(),
+        app_menu_bar.clone(),
+        cx,
+        player_settings.clone(),
+    );
 
     cx.on_action({
         let title = title.clone();
         let app_menu_bar = app_menu_bar.clone();
+        let p_settings = player_settings.clone();
         move |s: &SelectLocale, cx: &mut App| {
             let locale = s.0.as_str();
             rust_i18n::set_locale(locale);
@@ -42,7 +59,21 @@ pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> 
                     }
                 });
             }
-            update_app_menu(title.clone(), app_menu_bar.clone(), cx);
+
+            update_app_menu(title.clone(), app_menu_bar.clone(), cx, p_settings.clone());
+        }
+    });
+
+    cx.on_action({
+        let p_settings = player_settings.clone();
+        move |s: &SelectAudioRail, cx: &mut App| {
+            let new_ix = s.0;
+            p_settings.update(cx, |s, cx| {
+                if s.audio_ix != new_ix {
+                    s.audio_ix = new_ix;
+                    cx.notify();
+                }
+            });
         }
     });
 
@@ -50,16 +81,27 @@ pub fn init(title: impl Into<SharedString>, cx: &mut App) -> Entity<AppMenuBar> 
     cx.observe_global::<Theme>({
         let title = title.clone();
         let app_menu_bar = app_menu_bar.clone();
+        let p_settings = player_settings.clone();
         move |cx| {
-            update_app_menu(title.clone(), app_menu_bar.clone(), cx);
+            update_app_menu(title.clone(), app_menu_bar.clone(), cx, p_settings.clone());
         }
+    })
+    .detach();
+
+    let app_menu = app_menu_bar.clone();
+    cx.observe(&player_settings, move |settings, cx| {
+        update_app_menu(title.clone(), app_menu.clone(), cx, settings);
     })
     .detach();
 
     app_menu_bar
 }
 
-fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
+fn build_menus(
+    title: impl Into<SharedString>,
+    cx: &App,
+    player_settings: Entity<PlayerSettings>,
+) -> Vec<Menu> {
     vec![
         Menu {
             name: title.into(),
@@ -85,10 +127,7 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
         Menu {
             name: SharedString::from(t!("menu.player.title")),
             disabled: false,
-            items: vec![MenuItem::action(
-                t!("menu.player.audio_settings"),
-                OpenPlayerSetting,
-            )],
+            items: vec![audio_rails_menu(cx, player_settings)],
         },
         Menu {
             name: SharedString::from(t!("menu.editor.title")),
@@ -98,21 +137,21 @@ fn build_menus(title: impl Into<SharedString>, cx: &App) -> Vec<Menu> {
                 ClearSelectedRange,
             )],
         },
-        // Menu {
-        //     name: SharedString::from(t!("menu.settings")),
-        //     disabled: false,
-        //     items: vec![language_menu()],
-        // },
     ]
 }
 
-fn update_app_menu(title: impl Into<SharedString>, app_menu_bar: Entity<AppMenuBar>, cx: &mut App) {
+fn update_app_menu(
+    title: impl Into<SharedString>,
+    app_menu_bar: Entity<AppMenuBar>,
+    cx: &mut App,
+    player_settings: Entity<PlayerSettings>,
+) {
     // let mode = cx.theme().mode;
 
     let title: SharedString = title.into();
-    cx.set_menus(build_menus(title.clone(), cx));
+    cx.set_menus(build_menus(title.clone(), cx, player_settings.clone()));
 
-    let owned_menus = build_menus(title, cx)
+    let owned_menus = build_menus(title, cx, player_settings)
         .into_iter()
         .map(|m| m.owned())
         .collect();
@@ -134,6 +173,34 @@ fn language_menu() -> MenuItem {
             MenuItem::action("简体中文", SelectLocale(Language::ZhCn.as_locale().into()))
                 .checked(locale == Language::ZhCn.as_locale()),
         ],
+    })
+}
+
+fn audio_rails_menu(cx: &App, player_settings: Entity<PlayerSettings>) -> MenuItem {
+    let settings = player_settings.read(cx);
+    let mut items = vec![];
+    for (i, s) in settings.audio_rails.iter().enumerate() {
+        let item = MenuItem::action(
+            format!(
+                "Rail_{} ({})",
+                i,
+                s.handler_name
+                    .clone()
+                    .unwrap_or(SharedString::from(t!("menu.player.unnamed_rail")))
+            ),
+            SelectAudioRail(s.ix),
+        )
+        .checked(settings.audio_ix == s.ix);
+
+        items.push(item);
+    }
+
+    let length = items.len();
+
+    MenuItem::submenu(Menu {
+        name: SharedString::from(t!("player_settings.audio_track")),
+        items,
+        disabled: length == 0,
     })
 }
 

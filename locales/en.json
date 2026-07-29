@@ -21,7 +21,8 @@
     },
     "player": {
       "title": "Player",
-      "audio_settings": "Audio Settings"
+      "audio_settings": "Audio Settings",
+      "unnamed_rail": "unnamed"
     },
     "editor": {
       "title": "Editor",
