@@ -73,6 +73,10 @@ fn main() {
                 },
                 |window, cx| {
                     let view = cx.new(|cx| {
+                        cx.on_release(|_, cx| {
+                            cx.quit();
+                        })
+                        .detach();
                         MyApp::new(
                             cx,
                             size_entity,
