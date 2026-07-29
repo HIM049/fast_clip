@@ -53,7 +53,6 @@
     "gpu_policy": {
       "title": "GPU 策略",
       "description": "选择 GPU 使用策略。",
-      "auto": "自动",
       "software_only": "仅软件渲染",
       "prefer_integrated": "优先使用集成显卡",
       "prefer_discrete": "优先使用独立显卡"

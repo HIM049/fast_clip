@@ -4,8 +4,8 @@ use std::{
     path::PathBuf,
     ptr,
     sync::{
-        Arc, Condvar, Mutex,
         atomic::{AtomicU8, Ordering},
+        Arc, Condvar, Mutex,
     },
     thread,
     time::Duration,
@@ -13,12 +13,11 @@ use std::{
 
 use anyhow::anyhow;
 use ffmpeg_next::{
-    ChannelLayout, Codec, Error, Packet, Rational,
     decoder::{self},
     ffi::{
-        AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVCodecContext, AVHWDeviceType, AVPixelFormat,
         av_codec_is_decoder, av_codec_iterate, av_frame_copy_props, av_frame_unref,
-        av_hwdevice_ctx_create, av_hwframe_transfer_data, avcodec_get_hw_config,
+        av_hwdevice_ctx_create, av_hwframe_transfer_data, avcodec_get_hw_config, AVCodecContext,
+        AVHWDeviceType, AVPixelFormat, AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
     },
     format::{self, context, sample::Type},
     frame::{Audio, Video},
@@ -26,14 +25,16 @@ use ffmpeg_next::{
         resampling,
         scaling::{self},
     },
+    ChannelLayout, Codec, Error, Packet, Rational,
 };
 use gpui::{Context, Entity, SharedString};
 use ringbuf::{
-    HeapProd,
     traits::{Observer, Producer},
+    HeapProd,
 };
 
 use crate::{
+    config::{AppConfig, GpuPolicy},
     models::model::OutputParams,
     ui::{
         player::{
@@ -126,14 +127,28 @@ fn hardware_configurations(codec: Codec) -> Vec<HwSelection> {
     }
 }
 
-fn hardware_priority(device_type: AVHWDeviceType) -> u8 {
-    match device_type {
-        AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA => 0,
-        AVHWDeviceType::AV_HWDEVICE_TYPE_D3D11VA => 1,
-        AVHWDeviceType::AV_HWDEVICE_TYPE_QSV => 2,
-        AVHWDeviceType::AV_HWDEVICE_TYPE_DXVA2 => 3,
-        _ => 4,
+fn hardware_priority(policy: GpuPolicy, device_type: AVHWDeviceType) -> u8 {
+    match policy {
+        GpuPolicy::SoftwareOnly => u8::MAX,
+        GpuPolicy::PreferIntegrated => match device_type {
+            AVHWDeviceType::AV_HWDEVICE_TYPE_QSV => 0,
+            AVHWDeviceType::AV_HWDEVICE_TYPE_D3D11VA => 1,
+            AVHWDeviceType::AV_HWDEVICE_TYPE_DXVA2 => 2,
+            AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA => 3,
+            _ => 4,
+        },
+        GpuPolicy::PreferDiscrete => match device_type {
+            AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA => 0,
+            AVHWDeviceType::AV_HWDEVICE_TYPE_D3D11VA => 1,
+            AVHWDeviceType::AV_HWDEVICE_TYPE_DXVA2 => 2,
+            AVHWDeviceType::AV_HWDEVICE_TYPE_QSV => 3,
+            _ => 4,
+        },
     }
+}
+
+fn hardware_enabled(policy: GpuPolicy) -> bool {
+    !matches!(policy, GpuPolicy::SoftwareOnly)
 }
 
 fn decoder_implementation_priority(codec: Codec) -> u8 {
@@ -145,7 +160,10 @@ fn decoder_implementation_priority(codec: Codec) -> u8 {
     }
 }
 
-fn find_hardware_decoders(codec_id: ffmpeg_next::codec::Id) -> Vec<(Codec, HwSelection)> {
+fn find_hardware_decoders(
+    codec_id: ffmpeg_next::codec::Id,
+    policy: GpuPolicy,
+) -> Vec<(Codec, HwSelection)> {
     let mut opaque = ptr::null_mut();
     let mut candidates: Vec<(Codec, HwSelection)> = Vec::new();
 
@@ -154,13 +172,13 @@ fn find_hardware_decoders(codec_id: ffmpeg_next::codec::Id) -> Vec<(Codec, HwSel
         if codec.is_null() {
             candidates.sort_by_key(|(codec, selection)| {
                 (
-                    hardware_priority(selection.device_type),
+                    hardware_priority(policy, selection.device_type),
                     decoder_implementation_priority(*codec),
                 )
             });
             println!(
-                "[DEBUG-hwprobe] found {} hardware candidate(s) for {codec_id:?}",
-                candidates.len()
+                "[DEBUG-hwprobe] policy={policy:?}, found {} hardware candidate(s) for {codec_id:?}",
+                candidates.len(),
             );
             return candidates;
         }
@@ -239,23 +257,29 @@ fn try_open_hardware_decoder(
 
 fn open_video_decoder(
     parameters: ffmpeg_next::codec::Parameters,
+    policy: GpuPolicy,
 ) -> anyhow::Result<(decoder::Video, Option<Box<HwSelection>>)> {
     let codec_id = parameters.id();
 
-    for (codec, selection) in find_hardware_decoders(codec_id) {
-        if let Some((decoder, selection)) = try_open_hardware_decoder(&parameters, codec, selection)
-        {
-            println!(
-                "[DEBUG-hwprobe] selected decoder={}, device={:?}, pixel_format={:?}",
-                codec.name(),
-                selection.device_type,
-                selection.pixel_format
-            );
-            return Ok((decoder, Some(selection)));
+    if hardware_enabled(policy) {
+        for (codec, selection) in find_hardware_decoders(codec_id, policy) {
+            if let Some((decoder, selection)) =
+                try_open_hardware_decoder(&parameters, codec, selection)
+            {
+                println!(
+                    "[DEBUG-hwprobe] policy={policy:?}, selected decoder={}, device={:?}, pixel_format={:?}",
+                    codec.name(),
+                    selection.device_type,
+                    selection.pixel_format
+                );
+                return Ok((decoder, Some(selection)));
+            }
         }
+    } else {
+        println!("[DEBUG-hwprobe] policy={policy:?}, hardware decoding disabled");
     }
 
-    println!("[DEBUG-hwprobe] no hardware decoder selected; using software decoder");
+    println!("[DEBUG-hwprobe] policy={policy:?}, using software decoder");
     Ok((open_software_video_decoder(parameters)?, None))
 }
 
@@ -405,7 +429,8 @@ impl VideoDecoder {
 
         let video_parameters = v_stream.parameters();
         let audio_parameters = a_stream.parameters();
-        let (v_decoder, hw_selection) = open_video_decoder(video_parameters.clone())?;
+        let gpu_policy = cx.global::<AppConfig>().gpu_policy;
+        let (v_decoder, hw_selection) = open_video_decoder(video_parameters.clone(), gpu_policy)?;
 
         let a_decoder = open_audio_decoder(audio_parameters.clone())?;
 
@@ -1073,5 +1098,31 @@ mod tests {
         assert_eq!(output_channel_layout(1).channels(), 1);
         assert_eq!(output_channel_layout(2).channels(), 2);
         assert_eq!(output_channel_layout(6).channels(), 6);
+    }
+
+    #[test]
+    fn gpu_policy_changes_hardware_candidate_priority() {
+        assert!(hardware_enabled(GpuPolicy::PreferIntegrated));
+        assert!(hardware_enabled(GpuPolicy::PreferDiscrete));
+        assert!(!hardware_enabled(GpuPolicy::SoftwareOnly));
+
+        assert!(
+            hardware_priority(
+                GpuPolicy::PreferIntegrated,
+                AVHWDeviceType::AV_HWDEVICE_TYPE_QSV,
+            ) < hardware_priority(
+                GpuPolicy::PreferIntegrated,
+                AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA,
+            )
+        );
+        assert!(
+            hardware_priority(
+                GpuPolicy::PreferDiscrete,
+                AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA,
+            ) < hardware_priority(
+                GpuPolicy::PreferDiscrete,
+                AVHWDeviceType::AV_HWDEVICE_TYPE_QSV,
+            )
+        );
     }
 }

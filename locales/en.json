@@ -53,7 +53,6 @@
     "gpu_policy": {
       "title": "GPU Policy",
       "description": "Choose the GPU usage policy.",
-      "auto": "Auto",
       "software_only": "Software Only",
       "prefer_integrated": "Prefer Integrated GPU",
       "prefer_discrete": "Prefer Discrete GPU"

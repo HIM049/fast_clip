@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
 use gpui::Global;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,7 +25,6 @@ impl Language {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum GpuPolicy {
-    Auto,
     SoftwareOnly,
     PreferIntegrated,
     PreferDiscrete,
@@ -41,7 +40,6 @@ impl GpuPolicy {
 
     pub const fn i18n_key(self) -> &'static str {
         match self {
-            Self::Auto => "settings.gpu_policy.auto",
             Self::SoftwareOnly => "settings.gpu_policy.software_only",
             Self::PreferIntegrated => "settings.gpu_policy.prefer_integrated",
             Self::PreferDiscrete => "settings.gpu_policy.prefer_discrete",
@@ -82,7 +80,7 @@ impl Default for AppConfig {
         Self {
             language: Language::En,
             check_update: true,
-            gpu_policy: GpuPolicy::Auto,
+            gpu_policy: GpuPolicy::PreferDiscrete,
             step_mode: StepMode::Percent,
             step_percent: 0.01,
             step_sec: 5.0,
@@ -97,7 +95,11 @@ impl AppConfig {
             StepMode::Second => self.step_sec,
         };
 
-        if forward { now + step } else { now - step }
+        if forward {
+            now + step
+        } else {
+            now - step
+        }
     }
 
     pub fn save(&self) -> Option<anyhow::Error> {
