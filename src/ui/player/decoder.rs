@@ -63,6 +63,10 @@ pub struct ResamplerParams {
     target_rate: u32,
 }
 
+fn output_channel_layout(channels: u16) -> ChannelLayout {
+    ChannelLayout::default(i32::from(channels))
+}
+
 #[derive(Debug, Clone, Copy)]
 struct HwSelection {
     device_type: AVHWDeviceType,
@@ -313,6 +317,7 @@ pub struct VideoDecoder {
     audio_time_base: Rational,
     duration: i64,
     device_sample_rate: u32,
+    device_channels: u16,
 
     output_prarms: Entity<OutputParams>,
     v_producer: Option<HeapProd<FrameImage>>,
@@ -362,6 +367,7 @@ impl VideoDecoder {
         size: Entity<PlayerSize>,
         output_prarms: Entity<OutputParams>,
         sample_rate: u32,
+        output_channels: u16,
     ) -> anyhow::Result<Self>
     where
         T: 'static,
@@ -446,6 +452,7 @@ impl VideoDecoder {
 
             output_prarms,
             device_sample_rate: sample_rate,
+            device_channels: output_channels,
 
             event: Arc::new(Mutex::new(DecoderEvent::None)),
             condvar: Arc::new(Condvar::new()),
@@ -475,15 +482,16 @@ impl VideoDecoder {
     }
 
     fn create_resampler(
-        channel_layout: ChannelLayout,
+        source_channel_layout: ChannelLayout,
+        target_channel_layout: ChannelLayout,
         params: &ResamplerParams,
     ) -> anyhow::Result<resampling::context::Context> {
         Ok(resampling::context::Context::get(
             params.format,
-            channel_layout,
+            source_channel_layout,
             params.source_rate,
             params.target_format,
-            channel_layout,
+            target_channel_layout,
             params.target_rate,
         )?)
     }
@@ -527,6 +535,7 @@ impl VideoDecoder {
 
         let time_base = self.time_base;
         let audio_time_base = self.audio_time_base;
+        let device_channels = self.device_channels;
 
         let original_size = size.read(cx).original_size();
 
@@ -543,13 +552,18 @@ impl VideoDecoder {
         let decode_mode = self.decode_mode.clone();
 
         thread::spawn(move || {
+            let device_channel_layout = output_channel_layout(device_channels);
             let mut scaler = None;
             let mut resampler_params = resampler_params;
             let mut w = w;
             let mut h = h;
 
-            let mut resampler =
-                Self::create_resampler(a_decoder.channel_layout(), &resampler_params).unwrap();
+            let mut resampler = Self::create_resampler(
+                a_decoder.channel_layout(),
+                device_channel_layout,
+                &resampler_params,
+            )
+            .unwrap();
 
             // frame buffer
             let mut next_video_frame: Option<FrameImage> = None;
@@ -625,9 +639,12 @@ impl VideoDecoder {
                         audio_pkt_queue.clear();
 
                         // create new resampler
-                        resampler =
-                            Self::create_resampler(a_decoder.channel_layout(), &resampler_params)
-                                .unwrap();
+                        resampler = Self::create_resampler(
+                            a_decoder.channel_layout(),
+                            device_channel_layout,
+                            &resampler_params,
+                        )
+                        .unwrap();
 
                         unsafe {
                             a_producer.set_write_index(a_producer.read_index());
@@ -806,6 +823,7 @@ impl VideoDecoder {
                             Self::resampler_params_for(&a_decoder, resampler_params.target_rate);
                         resampler = match Self::create_resampler(
                             a_decoder.channel_layout(),
+                            device_channel_layout,
                             &resampler_params,
                         ) {
                             Ok(resampler) => resampler,
@@ -1044,4 +1062,16 @@ pub fn scale_frame(
         pts,
         reseeked,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn output_channel_layout_matches_device_channel_count() {
+        assert_eq!(output_channel_layout(1).channels(), 1);
+        assert_eq!(output_channel_layout(2).channels(), 2);
+        assert_eq!(output_channel_layout(6).channels(), 6);
+    }
 }

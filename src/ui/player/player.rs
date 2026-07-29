@@ -72,7 +72,9 @@ impl Player {
 
         let play_signal = Arc::new(AtomicBool::new(false));
         let audio_gain = Arc::new(AtomicF32::new(0.5));
-        audio_player.spawn(a_consumer, play_signal.clone(), audio_gain.clone());
+        audio_player
+            .spawn(a_consumer, play_signal.clone(), audio_gain.clone())
+            .expect("failed to create audio output stream");
 
         Self {
             init: false,
@@ -134,6 +136,7 @@ impl Player {
             self.size.clone(),
             self.output_params.clone(),
             self.audio_player.sample_rate(),
+            self.audio_player.channels(),
         );
         match decoder {
             Ok(d) => {
