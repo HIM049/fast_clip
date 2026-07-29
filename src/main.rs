@@ -203,8 +203,8 @@ fn open_output_dialog(
                 }
 
                 let view = cx.new(|cx| views::output::OutputView::new(w, cx, params));
-                w.open_dialog(cx, move |dialog, _, _| {
-                    views::output::build_output_dialog(dialog, view.clone())
+                w.open_dialog(cx, move |dialog, _, cx| {
+                    views::output::build_output_dialog(dialog, view.clone(), cx)
                 });
             })
             .unwrap();

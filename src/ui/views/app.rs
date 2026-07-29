@@ -22,6 +22,7 @@ use crate::{
         player::{
             player::{PlayState, Player},
             size::PlayerSize,
+            utils,
         },
         timeline::Timeline,
         views::player_settings::{PlayerSettings, PlayerSettingsView},
@@ -113,7 +114,7 @@ impl MyApp {
     }
 
     /// close file and reset player
-    pub fn clear_selection(&mut self, cx: &mut Context<Self>) {
+    pub fn clear_selection(&mut self, _: &mut Context<Self>) {
         self.selection_range = Range {
             start: None,
             end: None,
@@ -243,7 +244,7 @@ impl Render for MyApp {
         let bg_color = cx.theme().background.darken(0.5);
         let dialog_layer = Root::render_dialog_layer(window, cx);
         let sheet_layer = Root::render_sheet_layer(window, cx);
-        let notify_layer = Root::render_notification_layer(window, cx);
+        let notify_layer = utils::render_notification_layer(window, cx);
 
         if self.player.get_state() != PlayState::Stopped {
             if !window.has_active_dialog(cx) && !window.has_active_sheet(cx) {

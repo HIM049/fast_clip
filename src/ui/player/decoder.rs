@@ -4,8 +4,8 @@ use std::{
     path::PathBuf,
     ptr,
     sync::{
-        atomic::{AtomicU8, Ordering},
         Arc, Condvar, Mutex,
+        atomic::{AtomicU8, Ordering},
     },
     thread,
     time::Duration,
@@ -13,11 +13,12 @@ use std::{
 
 use anyhow::anyhow;
 use ffmpeg_next::{
+    ChannelLayout, Codec, Error, Packet, Rational,
     decoder::{self},
     ffi::{
+        AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX, AVCodecContext, AVHWDeviceType, AVPixelFormat,
         av_codec_is_decoder, av_codec_iterate, av_frame_copy_props, av_frame_unref,
-        av_hwdevice_ctx_create, av_hwframe_transfer_data, avcodec_get_hw_config, AVCodecContext,
-        AVHWDeviceType, AVPixelFormat, AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX,
+        av_hwdevice_ctx_create, av_hwframe_transfer_data, avcodec_get_hw_config,
     },
     format::{self, context, sample::Type},
     frame::{Audio, Video},
@@ -25,12 +26,11 @@ use ffmpeg_next::{
         resampling,
         scaling::{self},
     },
-    ChannelLayout, Codec, Error, Packet, Rational,
 };
 use gpui::{Context, Entity, SharedString};
 use ringbuf::{
-    traits::{Observer, Producer},
     HeapProd,
+    traits::{Observer, Producer},
 };
 
 use crate::{

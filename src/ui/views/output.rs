@@ -1,6 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ops::Range,
+    path::{Path, PathBuf},
+};
 
-use gpui::{AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div};
+use gpui::{
+    App, AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div, px,
+};
 use gpui_component::{
     Disableable, IndexPath, StyledExt, WindowExt,
     button::{Button, ButtonVariants},
@@ -8,6 +13,7 @@ use gpui_component::{
     dialog::Dialog,
     input::{Input, InputState},
     label::Label,
+    notification::Notification,
     select::{Select, SelectState},
 };
 use path_absolutize::Absolutize;
@@ -24,6 +30,7 @@ pub struct OutputView {
     output_path: PathBuf,
     audio_select: Entity<SelectState<Vec<AudioRail>>>,
     update_path: bool,
+    working: bool,
 }
 
 impl OutputView {
@@ -72,24 +79,23 @@ impl OutputView {
             output_path: new_path,
             audio_select,
             update_path: false,
+            working: false,
         }
     }
 
-    pub fn run_output(&self, cx: &mut gpui::App) {
+    fn output_job(&self, cx: &gpui::App) -> Option<(PathBuf, PathBuf, usize, usize, Range<f64>)> {
         let param = self.params.read(cx);
         if !param.all_some() {
-            return;
+            return None;
         }
-        let path = param.path.as_ref().unwrap();
+        let path = param.path.as_ref().unwrap().clone();
         let v_ix = param.video_stream_ix.unwrap();
         let mut a_ix = param.audio_stream_ix.unwrap();
-        let range = param.selected_range.as_ref().unwrap();
+        let range = param.selected_range.as_ref().unwrap().clone();
         if let Some(ix) = self.audio_select.read(cx).selected_value() {
             a_ix = *ix;
         }
-        if let Err(e) = output(path, &self.output_path, v_ix, a_ix, range) {
-            println!("error when output: {}", e);
-        }
+        Some((path, self.output_path.clone(), v_ix, a_ix, range))
     }
 
     fn listen_path(_: &mut Self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
@@ -168,8 +174,12 @@ impl Render for OutputView {
     }
 }
 
-pub fn build_output_dialog(dialog: Dialog, output_view: Entity<OutputView>) -> Dialog {
-    let output = output_view.clone();
+pub fn build_output_dialog(
+    dialog: Dialog,
+    output_view: Entity<OutputView>,
+    cx: &mut App,
+) -> Dialog {
+    let output_view_for_action = output_view.clone();
     dialog
         .title(t!("output.title"))
         .overlay_closable(false)
@@ -182,15 +192,54 @@ pub fn build_output_dialog(dialog: Dialog, output_view: Entity<OutputView>) -> D
                 .child(
                     Button::new("cancel")
                         .label(t!("common.actions.cancel"))
+                        .disabled(output_view_for_action.read(cx).working)
                         .on_click(|_, window, cx| window.close_dialog(cx)),
                 )
                 .child(
                     Button::new("output")
                         .primary()
                         .label(t!("output.title"))
+                        .disabled(output_view_for_action.read(cx).working)
                         .on_click(move |_, window, cx| {
-                            output.update(cx, |view, cx| view.run_output(cx));
-                            window.close_dialog(cx);
+                            let job = output_view_for_action.update(cx, |view, cx| {
+                                let job = view.output_job(cx);
+                                view.working = job.is_some();
+                                job
+                            });
+                            if let Some((input_path, output_path, video_ix, audio_ix, range)) = job
+                            {
+                                let window_handle = window.window_handle();
+                                cx.spawn(async move |cx| {
+                                    cx.background_spawn(async move {
+                                        if let Err(error) = output(
+                                            &input_path,
+                                            &output_path,
+                                            video_ix,
+                                            audio_ix,
+                                            &range,
+                                        ) {
+                                            println!("error when output: {error}");
+                                        }
+                                    })
+                                    .await;
+
+                                    let _ = cx.update_window(window_handle, |_, window, cx| {
+                                        window.close_dialog(cx);
+                                        cx.defer(move |cx| {
+                                            window_handle
+                                                .update(cx, |_, w, cx| {
+                                                    w.push_notification(
+                                                        Notification::success("Output Finished")
+                                                            .w(px(260.)),
+                                                        cx,
+                                                    );
+                                                })
+                                                .unwrap();
+                                        });
+                                    });
+                                })
+                                .detach();
+                            }
                         }),
                 ),
         )

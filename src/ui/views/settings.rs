@@ -1,16 +1,19 @@
 use gpui::{
     AnyWindowHandle, App, AppContext, BorrowAppContext, Context, IntoElement, ParentElement,
-    Render, SharedString, Styled, Window, div, px, rgb,
+    Render, SharedString, Styled, div, px,
 };
 use gpui_component::{
-    Icon, Root, WindowExt,
+    WindowExt,
     notification::{Notification, NotificationType},
     setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
 };
 use rust_i18n::t;
 use strum::IntoEnumIterator;
 
-use crate::config::{AppConfig, GpuPolicy, StepMode};
+use crate::{
+    config::{AppConfig, GpuPolicy, StepMode},
+    ui::player::utils,
+};
 
 struct SettingsSaveNotification;
 
@@ -24,7 +27,7 @@ impl SettingsView {
 
 impl Render for SettingsView {
     fn render(&mut self, w: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let notify_layer = render_notification_layer(w, cx);
+        let notify_layer = utils::render_notification_layer(w, cx);
         let window_handler = w.window_handle();
 
         div()
@@ -210,19 +213,4 @@ fn push_result_notify(
         })
         .unwrap();
     });
-}
-
-fn render_notification_layer(window: &Window, cx: &mut App) -> Option<impl IntoElement> {
-    let root = window.root::<Root>()??;
-
-    Some(
-        div()
-            .absolute()
-            .top_0()
-            .left_0()
-            .w_full()
-            .flex()
-            .justify_center()
-            .child(root.read(cx).notification.clone()),
-    )
 }

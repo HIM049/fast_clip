@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
 use gpui::Global;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,11 +95,7 @@ impl AppConfig {
             StepMode::Second => self.step_sec,
         };
 
-        if forward {
-            now + step
-        } else {
-            now - step
-        }
+        if forward { now + step } else { now - step }
     }
 
     pub fn save(&self) -> Option<anyhow::Error> {
