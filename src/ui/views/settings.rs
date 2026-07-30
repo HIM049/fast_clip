@@ -12,7 +12,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     config::{AppConfig, GpuPolicy, StepMode},
-    ui::player::utils,
+    ui::{player::utils, views::settings},
 };
 
 struct SettingsSaveNotification;
@@ -51,7 +51,7 @@ impl Render for SettingsView {
                             .group(
                                 SettingGroup::new()
                                     .title(text("settings.groups.control"))
-                                    .items(build_control_group(window_handler)),
+                                    .items(build_control_group(cx, window_handler)),
                             ),
                     ]),
             )
@@ -103,7 +103,8 @@ fn build_player_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
     ]
 }
 
-fn build_control_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
+fn build_control_group(cx: &mut App, window_handler: AnyWindowHandle) -> Vec<SettingItem> {
+    let current_mode = cx.global::<AppConfig>().step_mode;
     vec![
         SettingItem::new(
             text("settings.seek_mode.title"),
@@ -150,6 +151,7 @@ fn build_control_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
                 },
             ),
         )
+        .disabled(current_mode == settings::StepMode::Second)
         .description(text("settings.seek_percent.description")),
         SettingItem::new(
             text("settings.seek_seconds.title"),
@@ -157,7 +159,7 @@ fn build_control_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
                 NumberFieldOptions {
                     min: 0.1,
                     max: 600.0,
-                    step: 0.1,
+                    step: 0.5,
                 },
                 move |cx: &App| cx.global::<AppConfig>().step_sec,
                 move |step: f64, cx: &mut App| {
@@ -168,7 +170,8 @@ fn build_control_group(window_handler: AnyWindowHandle) -> Vec<SettingItem> {
                 },
             ),
         )
-        .description(text("settings.seek_seconds.description")),
+        .description(text("settings.seek_seconds.description"))
+        .disabled(current_mode == settings::StepMode::Percent),
         // SettingItem::new(
         //     "Working directory",
         //     SettingField::input(

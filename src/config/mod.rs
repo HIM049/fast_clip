@@ -22,7 +22,7 @@ impl Language {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, EnumIter)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum GpuPolicy {
     SoftwareOnly,
@@ -47,7 +47,7 @@ impl GpuPolicy {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, EnumIter)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum StepMode {
     Percent,
