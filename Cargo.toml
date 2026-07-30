@@ -39,7 +39,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 smallvec = "1.15.2"
 image = "0.25.10"
-ffmpeg-next = "8.1.0"
+ffmpeg-next = { version = "8.1.0", features = ["build"] }
 async-channel = "2.5.0"
 ringbuf = "0.4.8"
 cpal = "0.17.3"
@@ -52,3 +52,11 @@ strum_macros = "0.28.0"
 
 [build-dependencies]
 winres = "0.1.12"
+
+
+[package.metadata.bundle]
+name = "FastClip"
+identifier = "com.him049.fastclip"
+icon = ["assets/AppIcon.icns"]
+category = "Utility"
+short_description = "A fast video clipping tool."

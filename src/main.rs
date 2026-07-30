@@ -1,5 +1,5 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
-use std::{env, path::PathBuf, sync::Arc};
+use std::{env, rc::Rc, sync::Arc};
 
 use gpui::*;
 use gpui_component::*;
@@ -223,19 +223,20 @@ fn open_about_dialog(window: AnyWindowHandle) -> impl Fn(&About, &mut App) {
     }
 }
 
-fn init_theme(cx: &mut App) {
-    let theme_name = SharedString::from("macOS Classic Dark");
+const DEFAULT_THEME: &str = include_str!("../themes/macos-classic.json");
 
-    if let Err(err) = ThemeRegistry::watch_dir(PathBuf::from("./themes"), cx, move |cx| {
-        if let Some(theme_cfg) = ThemeRegistry::global(cx).themes().get(&theme_name).cloned() {
-            let theme = Theme::global_mut(cx);
-            theme.apply_config(&theme_cfg);
-            theme.notification.placement = Anchor::TopCenter;
-            theme.notification.max_items = 1;
+fn init_theme(cx: &mut App) {
+    let theme_set = serde_json::from_str::<ThemeSet>(DEFAULT_THEME).unwrap();
+
+    let theme = Theme::global_mut(cx);
+    for theme_cfg in theme_set.themes {
+        let theme_rc = Rc::new(theme_cfg);
+        if theme_rc.mode.is_dark() {
+            theme.apply_config(&theme_rc);
         }
-    }) {
-        println!("error when init theme: {}", err);
     }
+    theme.notification.placement = Anchor::TopCenter;
+    theme.notification.max_items = 1;
 }
 
 fn active_window(cx: &mut App, win_handle: &mut Option<WindowHandle<Root>>) -> Result<(), ()> {
