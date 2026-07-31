@@ -1,0 +1,53 @@
+{
+  "name": "ffmpeg",
+  "version": "7.1.2",
+  "port-version": 1,
+  "description": "FastClip's static FFmpeg preset: broad native media support with dav1d AV1 decoding.",
+  "license": null,
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake-get-vars",
+      "host": true
+    },
+    {
+      "name": "vcpkg-pkgconfig-get-modules",
+      "host": true
+    }
+  ],
+  "default-features": [
+    "avcodec",
+    "avformat",
+    "swresample",
+    "swscale",
+    "dav1d"
+  ],
+  "features": {
+    "avcodec": {
+      "description": "Build libavcodec with FFmpeg's native encoders and decoders."
+    },
+    "avformat": {
+      "description": "Build libavformat for media container input and output.",
+      "dependencies": [
+        {
+          "name": "ffmpeg",
+          "default-features": false,
+          "features": [
+            "avcodec"
+          ]
+        }
+      ]
+    },
+    "dav1d": {
+      "description": "Use dav1d for AV1 software decoding.",
+      "dependencies": [
+        "dav1d"
+      ]
+    },
+    "swresample": {
+      "description": "Build libswresample for audio playback."
+    },
+    "swscale": {
+      "description": "Build libswscale for video preview conversion."
+    }
+  }
+}
