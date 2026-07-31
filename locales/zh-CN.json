@@ -33,7 +33,9 @@
     "title": "导出",
     "path": "输出路径",
     "audio_track": "音频轨道",
-    "copy_stream": "复制流"
+    "copy_stream": "复制流",
+    "finished": "导出完成",
+    "failed": "导出失败：%{error}"
   },
   "player_settings": {
     "title": "播放器设置",

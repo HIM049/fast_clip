@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     ops::Range,
     path::{Path, PathBuf},
 };
@@ -98,8 +99,13 @@ impl OutputView {
         Some((path, self.output_path.clone(), v_ix, a_ix, range))
     }
 
-    fn listen_path(_: &mut Self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
-        let result = cx.prompt_for_new_path(Path::new("./"), Some("ouput.mp4"));
+    fn listen_path(this: &mut Self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
+        let file_name = &this
+            .output_path
+            .file_name()
+            .unwrap_or(OsStr::new("output.mp4"))
+            .to_string_lossy();
+        let result = cx.prompt_for_new_path(Path::new("./"), Some(file_name));
 
         cx.spawn(async |this, cx| {
             let Ok(r) = result.await else {
@@ -210,27 +216,32 @@ pub fn build_output_dialog(
                             {
                                 let window_handle = window.window_handle();
                                 cx.spawn(async move |cx| {
-                                    cx.background_spawn(async move {
-                                        if let Err(error) = output(
-                                            &input_path,
-                                            &output_path,
-                                            video_ix,
-                                            audio_ix,
-                                            &range,
-                                        ) {
-                                            println!("error when output: {error}");
-                                        }
-                                    })
-                                    .await;
+                                    let result = cx
+                                        .background_spawn(async move {
+                                            output(
+                                                &input_path,
+                                                &output_path,
+                                                video_ix,
+                                                audio_ix,
+                                                &range,
+                                            )
+                                        })
+                                        .await;
 
                                     let _ = cx.update_window(window_handle, |_, window, cx| {
                                         window.close_dialog(cx);
+                                        let notification = match result {
+                                            Ok(()) => Notification::success(t!("output.finished")),
+                                            Err(error) => Notification::error(t!(
+                                                "output.failed",
+                                                error = error
+                                            )),
+                                        };
                                         cx.defer(move |cx| {
                                             window_handle
                                                 .update(cx, |_, w, cx| {
                                                     w.push_notification(
-                                                        Notification::success("Output Finished")
-                                                            .w(px(260.)),
+                                                        notification.w(px(260.)),
                                                         cx,
                                                     );
                                                 })
