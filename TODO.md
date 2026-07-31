@@ -1,0 +1,42 @@
+
+## Roadmap
+- version 1.1
+  - [ ] Linux support
+  - [ ] optmize render state machine
+  - [ ] Key map
+  - [ ] Key binding
+
+- version 1.0
+  - [x] video play
+  - [x] sound play
+  - [x] progress indicator
+  - [x] play control
+  - [x] seek video
+  - [x] select range
+  - [x] basic output (copy stream)
+  - [x] output with sound
+  - [x] file picker & open action
+  - [x] seek fix
+  - [x] buttons: [next/front key frame, to A/B, +-1min, ...]
+  - [x] initiative seek？
+  - [x] auto decoder selector
+  - [x] keyboard binding
+  - [x] multiple audio stream select
+  - [x] volume adjust
+  - [x] Update checker
+  - [x] Output result
+  - [x] Config window
+    - [x] Decoder config
+    - [x] seek config
+  - RELEASE 1.0
+
+- Longtern
+  - [ ] Gpu render
+  - [ ] multiple audio stream mix
+  - [ ] code transform
+  - [ ] output compression
+  - [ ] framerate resample
+  - [ ] manual decoder selector
+  - [ ] multiple source
+  - [ ] clip base preview & output
+  - [ ] clip base edit
