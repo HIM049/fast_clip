@@ -1,0 +1,124 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x86_64
+    runs-on: windows-latest
+    env:
+      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
+      VCPKGRS_TRIPLET: x64-windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-x86_64-dynamic
+
+      - name: Checkout vcpkg
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          ref: 74e6536215718009aae747d86d84b78376bf9e09
+          path: vcpkg
+
+      - name: Install FFmpeg
+        shell: pwsh
+        run: |
+          .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+          .\vcpkg\vcpkg.exe install ffmpeg:x64-windows --overlay-ports="$env:GITHUB_WORKSPACE\vcpkg-overlay"
+          "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build release binary
+        shell: pwsh
+        run: |
+          Remove-Item Env:FFMPEG_DIR -ErrorAction SilentlyContinue
+          cargo build --release
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          .\scripts\package-windows.ps1 -VcpkgRoot "$env:VCPKG_ROOT"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastClip-windows-x86_64-dynamic
+          path: dist/FastClip-windows-x86_64-dynamic.zip
+          retention-days: 15
+          if-no-files-found: error
+
+  macos:
+    name: macOS arm64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify runner architecture
+        run: test "$(uname -m)" = "arm64"
+
+      - name: Restore Homebrew download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: macos-arm64-homebrew-ffmpeg
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install FFmpeg
+        id: ffmpeg
+        run: |
+          brew install ffmpeg
+          echo "prefix=$(brew --prefix ffmpeg)" >> "$GITHUB_OUTPUT"
+          echo "version=$(brew info --json=v2 ffmpeg | jq -r '.formulae[0].installed[0].version')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: macos-arm64-cargo-${{ hashFiles('Cargo.lock') }}-${{ steps.ffmpeg.outputs.version }}
+          restore-keys: |
+            macos-arm64-cargo-${{ hashFiles('Cargo.lock') }}-
+
+      - name: Install cargo-bundle
+        run: |
+          command -v cargo-bundle >/dev/null 2>&1 || cargo install cargo-bundle
+
+      - name: Build app bundle
+        env:
+          FFMPEG_DIR: ${{ steps.ffmpeg.outputs.prefix }}
+        run: cargo bundle --release
+
+      - name: Package macOS artifact
+        env:
+          FFMPEG_PREFIX: ${{ steps.ffmpeg.outputs.prefix }}
+        run: bash scripts/package-macos.sh target/release/bundle/osx/FastClip.app dist/FastClip-macos-arm64-dynamic.zip
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastClip-macos-arm64-dynamic
+          path: dist/FastClip-macos-arm64-dynamic.zip
+          retention-days: 15
+          if-no-files-found: error
