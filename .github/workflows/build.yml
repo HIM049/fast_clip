@@ -11,11 +11,11 @@ permissions:
 
 jobs:
   windows:
-    name: Windows x86_64
+    name: Windows x86_64 static
     runs-on: windows-latest
     env:
       VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
-      VCPKGRS_TRIPLET: x64-windows
+      VCPKGRS_TRIPLET: x64-windows-fastclip-static-md
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +27,7 @@ jobs:
       - name: Restore Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: windows-x86_64-dynamic
+          shared-key: windows-x86_64-static
 
       - name: Checkout vcpkg
         uses: actions/checkout@v4
@@ -40,14 +40,20 @@ jobs:
         shell: pwsh
         run: |
           .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          .\vcpkg\vcpkg.exe install ffmpeg:x64-windows --overlay-ports="$env:GITHUB_WORKSPACE\vcpkg-overlay"
+          .\vcpkg\vcpkg.exe install ffmpeg:x64-windows-fastclip-static-md --overlay-ports="$env:GITHUB_WORKSPACE\vcpkg-overlay" --overlay-triplets="$env:GITHUB_WORKSPACE\vcpkg-triplets"
           "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          # Dynamic alternative retained for future use:
+          # .\vcpkg\vcpkg.exe install ffmpeg:x64-windows --overlay-ports="$env:GITHUB_WORKSPACE\vcpkg-overlay"
 
       - name: Build release binary
         shell: pwsh
         run: |
           Remove-Item Env:FFMPEG_DIR -ErrorAction SilentlyContinue
-          cargo build --release
+          cargo build --profile release-static --features static-ffmpeg --locked
+
+          # Dynamic alternative retained for future use:
+          # cargo build --release --locked
 
       - name: Package Windows artifact
         shell: pwsh
@@ -57,8 +63,8 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FastClip-windows-x86_64-dynamic
-          path: dist/FastClip-windows-x86_64-dynamic.zip
+          name: FastClip-windows-x86_64-static
+          path: dist/FastClip-windows-x86_64-static.zip
           retention-days: 15
           if-no-files-found: error
 
