@@ -103,28 +103,30 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: macos-arm64-cargo-${{ hashFiles('Cargo.lock') }}-${{ steps.ffmpeg.outputs.version }}
+          key: macos-arm64-cargo-bundle-0.11.0-${{ hashFiles('Cargo.lock') }}-${{ steps.ffmpeg.outputs.version }}
           restore-keys: |
-            macos-arm64-cargo-${{ hashFiles('Cargo.lock') }}-
+            macos-arm64-cargo-bundle-0.11.0-${{ hashFiles('Cargo.lock') }}-
 
       - name: Install cargo-bundle
         run: |
-          command -v cargo-bundle >/dev/null 2>&1 || cargo install cargo-bundle
+          if ! cargo bundle --version 2>/dev/null | grep -Fq "cargo-bundle v0.11.0"; then
+            cargo install cargo-bundle --version 0.11.0 --locked --force
+          fi
 
-      - name: Build app bundle
+      - name: Build release binary
         env:
           FFMPEG_DIR: ${{ steps.ffmpeg.outputs.prefix }}
-        run: cargo bundle --release
+        run: cargo build --release --locked
 
-      - name: Package macOS artifact
+      - name: Package native macOS DMG
         env:
           FFMPEG_PREFIX: ${{ steps.ffmpeg.outputs.prefix }}
-        run: bash scripts/package-macos.sh target/release/bundle/osx/FastClip.app dist/FastClip-macos-arm64-dynamic.zip
+        run: bash scripts/package-macos.sh target/release/fast_clip
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: FastClip-macos-arm64-dynamic
-          path: dist/FastClip-macos-arm64-dynamic.zip
+          path: target/release/bundle/dmg/FastClip.dmg
           retention-days: 15
           if-no-files-found: error

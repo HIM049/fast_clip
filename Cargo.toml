@@ -67,5 +67,6 @@ strip = "symbols"
 name = "FastClip"
 identifier = "com.him049.fastclip"
 icon = ["assets/AppIcon.icns"]
+resources = ["LICENSE", "libraries"]
 category = "Utility"
 short_description = "A fast video clipping tool."
