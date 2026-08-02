@@ -8,7 +8,6 @@ $ErrorActionPreference = "Stop"
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $packageName = "FastClip-windows-x86_64-static"
 $stageDirectory = Join-Path $projectRoot "dist\$packageName"
-$archivePath = Join-Path $projectRoot "dist\$packageName.zip"
 $binaryPath = Join-Path $projectRoot "target\release-static\fast_clip.exe"
 $licensePath = Join-Path $projectRoot "LICENSE"
 $ffmpegShare = Join-Path $VcpkgRoot "installed\x64-windows-fastclip-static-md\share"
@@ -58,7 +57,6 @@ if ($dependencies -match "(?i)(avcodec|avdevice|avfilter|avformat|avutil|postpro
 }
 
 Remove-Item -LiteralPath $stageDirectory -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $archivePath -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $stageDirectory | Out-Null
 
 Copy-Item -LiteralPath $binaryPath -Destination $stageDirectory
@@ -82,8 +80,11 @@ if ($licenseCount -eq 0) {
     throw "No vcpkg dependency licenses were found under $ffmpegShare."
 }
 
-Compress-Archive -Path $stageDirectory -DestinationPath $archivePath -CompressionLevel Optimal
-
-if (-not (Test-Path -LiteralPath $archivePath)) {
-    throw "The package archive was not created: $archivePath"
+foreach ($packagedPath in @(
+    (Join-Path $stageDirectory "fast_clip.exe"),
+    (Join-Path $stageDirectory "LICENSE-fast_clip.txt")
+)) {
+    if (-not (Test-Path -LiteralPath $packagedPath -PathType Leaf)) {
+        throw "The packaged file was not created: $packagedPath"
+    }
 }

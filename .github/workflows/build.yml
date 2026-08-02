@@ -64,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FastClip-windows-x86_64-static
-          path: dist/FastClip-windows-x86_64-static.zip
+          path: dist/FastClip-windows-x86_64-static
           retention-days: 15
           if-no-files-found: error
 
@@ -118,7 +118,7 @@ jobs:
           FFMPEG_DIR: ${{ steps.ffmpeg.outputs.prefix }}
         run: cargo build --release --locked
 
-      - name: Package native macOS DMG
+      - name: Package signed macOS DMG
         env:
           FFMPEG_PREFIX: ${{ steps.ffmpeg.outputs.prefix }}
         run: bash scripts/package-macos.sh target/release/fast_clip
