@@ -6,14 +6,13 @@ use gpui::{
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Task, Window, div,
     prelude::FluentBuilder, px, rgba, svg,
 };
-use gpui_component::{ActiveTheme, Colorize, Root, StyledExt, WindowExt};
+use gpui_component::{
+    ActiveTheme, Colorize, Root, StyledExt, TitleBar, WindowExt, menu::AppMenuBar,
+};
 
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
-    components::{
-        app_menu::{ClearSelectedRange, Close, OpenPlayerSetting},
-        app_title_bar::AppTitleBar,
-    },
+    components::app_menu::{self, ClearSelectedRange, Close, OpenPlayerSetting},
     config::AppConfig,
     models::model::OutputParams,
     ui::{
@@ -37,7 +36,7 @@ enum MessageState {
 }
 
 pub struct MyApp {
-    title_bar: Entity<AppTitleBar>,
+    app_menu: Entity<AppMenuBar>,
     size: Entity<PlayerSize>,
     output_parames: Entity<OutputParams>,
     player: Player,
@@ -57,13 +56,13 @@ impl MyApp {
         param_entity: Entity<OutputParams>,
     ) -> Self {
         let settings = cx.new(|_| PlayerSettings::default());
-        let title_bar = cx.new(|cx| AppTitleBar::new(cx, "FastClip", settings.clone()));
+        let app_menu = app_menu::init(cx, "FastClip", settings.clone());
         let focus_handle = cx.focus_handle();
         Self::listen_open(&param_entity, cx);
         Self::listen_settings(&settings, cx);
 
         Self {
-            title_bar,
+            app_menu,
             size: size_entity.clone(),
             output_parames: param_entity.clone(),
             player: Player::new(size_entity, param_entity),
@@ -272,7 +271,16 @@ impl Render for MyApp {
             .bg(cx.theme().background)
             .v_flex()
             .size_full()
-            .child(self.title_bar.clone())
+            .child(
+                TitleBar::new().child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .when(!cfg!(target_os = "macos"), |this| {
+                            this.child(self.app_menu.clone())
+                        }),
+                ),
+            )
             .child(
                 div()
                     .track_focus(&self.focus_handle)

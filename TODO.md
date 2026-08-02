@@ -2,7 +2,9 @@
 ## Roadmap
 - version 1.1
   - [ ] Linux support
-  - [ ] optmize render state machine
+  - [ ] Player optmize
+    - [ ] optmize render state machine
+    - [ ] resolution downscaling
   - [ ] Key map
   - [ ] Key binding
 
