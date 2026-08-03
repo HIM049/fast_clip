@@ -17,7 +17,7 @@ edition = "2024"
 [workspace.dependencies]
 anyhow = "1.0.104"
 gpui = { git = "https://github.com/zed-industries/zed" }
-gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit", "wayland", "x11"] }
 log = "0.4"
 reqwest = { version = "0.12.28", features = ["json", "blocking", "rustls-tls", "stream", "rustls-tls-native-roots"] }
 serde = "1.0.229"
