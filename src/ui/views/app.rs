@@ -12,19 +12,19 @@ use gpui_component::{
 
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
-    components::app_menu::{self, ClearSelectedRange, Close, OpenPlayerSetting},
+    components::app_menu::{self, ClearSelectedRange, Close},
     config::AppConfig,
     models::model::OutputParams,
     ui::{
         button::RoundButton,
         chip::Chip,
-        player::{
-            player::{PlayState, Player},
-            size::PlayerSize,
+            player::{
+                player::{PlayState, Player},
+                settings::PlayerSettings,
+                size::PlayerSize,
             utils,
         },
         timeline::Timeline,
-        views::player_settings::{PlayerSettings, PlayerSettingsView},
     },
 };
 
@@ -284,7 +284,6 @@ impl Render for MyApp {
             .child(
                 div()
                     .track_focus(&self.focus_handle)
-                    .on_action(cx.listener(on_open_settings))
                     .on_action(cx.listener(on_close_file))
                     .on_action(cx.listener(on_clear_selection))
                     .on_action(cx.listener(on_switch))
@@ -507,15 +506,6 @@ fn message_box(msg: impl IntoElement, icon: Option<String>) -> AnyElement {
         .into_any_element()
 }
 
-fn on_open_settings(
-    this: &mut MyApp,
-    _: &OpenPlayerSetting,
-    _: &mut Window,
-    cx: &mut Context<MyApp>,
-) {
-    PlayerSettingsView::open_window(cx, this.settings.clone()).unwrap();
-    cx.notify();
-}
 fn on_clear_selection(
     this: &mut MyApp,
     _: &ClearSelectedRange,

@@ -2,10 +2,8 @@ use gpui::{Action, App, BorrowAppContext, Entity, Menu, MenuItem, SharedString, 
 use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::{
-    config::{self, AppConfig, Language},
-    ui::views::player_settings::PlayerSettings,
-};
+use crate::config::{self, AppConfig, Language};
+use crate::ui::player::settings::PlayerSettings;
 
 actions!(
     menu,
@@ -16,7 +14,6 @@ actions!(
         Open,
         Close,
         Output,
-        OpenPlayerSetting,
         ClearSelectedRange
     ]
 );
