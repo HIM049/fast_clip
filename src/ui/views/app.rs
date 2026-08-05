@@ -474,7 +474,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                                         .border()
                                         .bold()
                                         .mono()
-                                        .label("-- : --.-- / -- : --.--"),
+                                        .label("--:--.-- / --:--.--"),
                                 )
                             },
                         ),

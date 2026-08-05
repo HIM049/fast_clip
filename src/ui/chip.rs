@@ -81,10 +81,7 @@ impl RenderOnce for Chip {
             })
             .when(self.bold, |this| this.font_bold())
             .when(self.mono, |this| {
-                this.font_features(gpui::FontFeatures(std::sync::Arc::new(vec![(
-                    "tnum".to_string(),
-                    1,
-                )])))
+                this.font_family(cx.theme().mono_font_family.clone())
             })
             .when(self.border, |this| {
                 this.border_1().border_color(gpui::white().alpha(0.3))
