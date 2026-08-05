@@ -130,3 +130,66 @@ jobs:
           path: target/release/bundle/dmg/FastClip.dmg
           retention-days: 15
           if-no-files-found: error
+
+  linux:
+    name: Linux x86_64 dynamic AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            clang \
+            curl \
+            file \
+            imagemagick \
+            libasound2-dev \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libssl-dev \
+            libswresample-dev \
+            libswscale-dev \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libzstd-dev \
+            patchelf \
+            pax-utils \
+            pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: linux-x86_64-appimage-ubuntu-22.04
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Package Linux AppImage
+        run: bash scripts/package-linux.sh target/release/fast_clip
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastClip-linux-x86_64-dynamic
+          path: target/release/bundle/appimage/FastClip-linux-x86_64.AppImage
+          retention-days: 15
+          if-no-files-found: error

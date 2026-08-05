@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=FastClip
+Comment=A fast video clipping tool.
+Exec=fast_clip
+Icon=com.him049.fastclip
+Terminal=false
+Categories=AudioVideo;Video;Utility;

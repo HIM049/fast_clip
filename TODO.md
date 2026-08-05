@@ -1,7 +1,7 @@
 
 ## Roadmap
 - version 1.1
-  - [ ] Linux support
+  - [x] Linux support
   - [ ] Player optmize
     - [ ] optmize render state machine
     - [ ] resolution downscaling
