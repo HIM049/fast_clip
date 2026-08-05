@@ -30,7 +30,7 @@ impl Timeline {
         self
     }
 
-    fn indicator_x(&self, b: gpui::Bounds<gpui::Pixels>) -> Pixels {
+    fn indicator_width(&self, b: gpui::Bounds<gpui::Pixels>) -> Pixels {
         (b.size.width * self.percent).round()
     }
 }
@@ -98,7 +98,9 @@ impl Element for Timeline {
 
         let point_color = rgb(0xFFF29A);
 
-        let indi_x = self.indicator_x(bounds);
+        let origin_x = bounds.origin.x;
+        let indi_width = self.indicator_width(bounds);
+        let indi_x = origin_x + indi_width;
 
         // timeline base
         window.paint_quad(quad(
@@ -120,7 +122,7 @@ impl Element for Timeline {
             Bounds {
                 origin: self.origin_point,
                 size: Size {
-                    width: indi_x - px(1.),
+                    width: indi_width - px(1.),
                     height: base_h,
                 },
             },
@@ -135,8 +137,8 @@ impl Element for Timeline {
         if self.range.start.is_some() || self.range.end.is_some() {
             let start = self.range.start.unwrap_or(0.);
             let end = self.range.end.unwrap_or(1.);
-            let point_a = (bounds.size.width * start).max(bounds.origin.x);
-            let point_b = (bounds.size.width + px(1.)) * end;
+            let point_a = origin_x + bounds.size.width * start;
+            let point_b = origin_x + (bounds.size.width + px(1.)) * end;
 
             let divide_point = if indi_x > point_b {
                 // indicator in range
@@ -185,12 +187,12 @@ impl Element for Timeline {
 
         // draw range start point
         if let Some(start) = self.range.start {
-            let point = (bounds.size.width * start).round() - px(1.);
+            let point = origin_x + (bounds.size.width * start).round() - px(1.);
             paint_dashline(window, point, self.origin_point.y - px(7.5), point_color);
         }
         // draw range end point
         if let Some(end) = self.range.end {
-            let point = (bounds.size.width * end).round();
+            let point = origin_x + (bounds.size.width * end).round();
             paint_dashline(window, point, self.origin_point.y - px(7.5), point_color);
         }
 
@@ -218,7 +220,7 @@ impl Element for Timeline {
         if let Some(on_click) = self.on_click.clone() {
             window.on_mouse_event(move |e: &MouseDownEvent, phase, _, cx| {
                 if phase.bubble() && e.button == MouseButton::Left && bounds.contains(&e.position) {
-                    let percent = e.position.x / bounds.size.width;
+                    let percent = (e.position.x - origin_x) / bounds.size.width;
                     on_click(percent, cx);
                     cx.stop_propagation();
                 }
