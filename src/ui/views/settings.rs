@@ -1,9 +1,9 @@
 use gpui::{
-    AnyWindowHandle, App, AppContext, BorrowAppContext, Context, IntoElement, ParentElement,
-    Render, SharedString, Styled, div, px,
+    AnyWindowHandle, App, AppContext, BorrowAppContext, Context, Decorations, IntoElement,
+    ParentElement, Render, SharedString, Styled, div, px,
 };
 use gpui_component::{
-    WindowExt,
+    StyledExt, TitleBar, WindowExt,
     notification::{Notification, NotificationType},
     setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
 };
@@ -29,31 +29,42 @@ impl Render for SettingsView {
     fn render(&mut self, w: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         let notify_layer = utils::render_notification_layer(w, cx);
         let window_handler = w.window_handle();
+        let title_bar = (cfg!(target_os = "linux")
+            && matches!(w.window_decorations(), Decorations::Client { .. }))
+        .then(|| {
+            TitleBar::new()
+                .text_sm()
+                .child(t!("menu.application.settings"))
+        });
 
         div()
             .size_full()
+            .v_flex()
+            .children(title_bar)
             .child(
-                Settings::new("app-settings")
-                    .sidebar_width(px(100.))
-                    .pages(vec![
-                        SettingPage::new(text("settings.general"))
-                            .default_open(true)
-                            .group(
-                                SettingGroup::new()
-                                    .title(text("settings.groups.application"))
-                                    .items(build_general_group(window_handler)),
-                            )
-                            .group(
-                                SettingGroup::new()
-                                    .title(text("settings.groups.player"))
-                                    .items(build_player_group(window_handler)),
-                            )
-                            .group(
-                                SettingGroup::new()
-                                    .title(text("settings.groups.control"))
-                                    .items(build_control_group(cx, window_handler)),
-                            ),
-                    ]),
+                div().flex_1().min_h_0().child(
+                    Settings::new("app-settings")
+                        .sidebar_width(px(100.))
+                        .pages(vec![
+                            SettingPage::new(text("settings.general"))
+                                .default_open(true)
+                                .group(
+                                    SettingGroup::new()
+                                        .title(text("settings.groups.application"))
+                                        .items(build_general_group(window_handler)),
+                                )
+                                .group(
+                                    SettingGroup::new()
+                                        .title(text("settings.groups.player"))
+                                        .items(build_player_group(window_handler)),
+                                )
+                                .group(
+                                    SettingGroup::new()
+                                        .title(text("settings.groups.control"))
+                                        .items(build_control_group(cx, window_handler)),
+                                ),
+                        ]),
+                ),
             )
             .children(notify_layer)
     }

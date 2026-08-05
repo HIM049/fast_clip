@@ -18,10 +18,10 @@ use crate::{
     ui::{
         button::RoundButton,
         chip::Chip,
-            player::{
-                player::{PlayState, Player},
-                settings::PlayerSettings,
-                size::PlayerSize,
+        player::{
+            player::{PlayState, Player},
+            settings::PlayerSettings,
+            size::PlayerSize,
             utils,
         },
         timeline::Timeline,
