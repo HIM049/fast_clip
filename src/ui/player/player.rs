@@ -406,7 +406,7 @@ impl Player {
             }
         }
 
-        Viewer::new(self.frame.clone(), self.size.clone())
+        Viewer::new(self.frame.clone(), self.size.clone(), self.slow_mode())
     }
 }
 

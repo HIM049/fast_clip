@@ -11,4 +11,6 @@ pub static VOLUME_UP: &str = "icons/volume_up.svg";
 pub static VOLUME_MUTE: &str = "icons/volume_mute.svg";
 pub static TIME_DURATION: &str = "icons/time_duration_line.svg";
 
+pub static SPEED_2: &str = "icons/speed_2.svg";
+
 pub static GITHUB: &str = "icons/github.svg";
