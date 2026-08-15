@@ -59,6 +59,9 @@ pub struct Player {
     pending_seeking: Option<f64>,
     play_signal: Arc<AtomicBool>,
     audio_gain: Arc<AtomicF32>,
+
+    last_behind_time: f64,
+    behind_count: u8,
 }
 
 impl Player {
@@ -95,6 +98,9 @@ impl Player {
             pending_seeking: None,
             play_signal,
             audio_gain,
+
+            last_behind_time: 0.0,
+            behind_count: 0,
         }
     }
 
@@ -110,6 +116,11 @@ impl Player {
     /// Get current player state
     pub fn get_state(&self) -> PlayState {
         self.state
+    }
+
+    /// is decoder cannot keep up
+    pub fn slow_mode(&self) -> bool {
+        self.behind_count > 10
     }
 
     /// Get current play percentage
@@ -333,7 +344,20 @@ impl Player {
             FrameAction::Wait
         } else if frame_time < play_time - 0.3 {
             // frame is too old, drop
-            FrameAction::Drop
+            let behind = play_time - frame_time;
+            if behind > self.last_behind_time {
+                self.last_behind_time = behind;
+                self.behind_count += 1;
+            }
+
+            // if cannot keep up
+            if self.slow_mode() {
+                self.timer.set_time_sec(frame_time);
+                self.timer.start();
+                FrameAction::Render
+            } else {
+                FrameAction::Drop
+            }
         } else if frame_time <= play_time {
             // frame is in window and should render
             FrameAction::Render
