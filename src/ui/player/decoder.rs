@@ -34,7 +34,7 @@ use ringbuf::{
 };
 
 use crate::{
-    config::{AppConfig, GpuPolicy},
+    config::file::{AppConfig, GpuPolicy},
     models::model::OutputParams,
     ui::{
         player::{

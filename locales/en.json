@@ -9,6 +9,7 @@
   "menu": {
     "application": {
       "about": "About",
+      "help": "Keymap Help",
       "settings": "Settings",
       "language": "Language",
       "quit": "Quit"
@@ -72,6 +73,26 @@
     "seek_seconds": {
       "title": "Seek Seconds",
       "description": "Seconds to skip when seeking forward or backward."
+    }
+  },
+  "help": {
+    "title": "Help",
+    "playback": {
+      "title": "Playback",
+      "play_desc": "Play or Pause",
+      "back_desc": "Rewind Quickly",
+      "forward_desc": "Fast Forward",
+      "volume_up_desc": "Increase Volume",
+      "volume_down_desc": "Decrease Volume"
+    },
+    "range": {
+      "title": "Range Selection",
+      "set_start_desc": "Set Selection Start",
+      "set_end_desc": "Set Selection End"
+    },
+    "export": {
+      "title": "Export",
+      "export_desc": "Open the export dialog"
     }
   },
   "update_dialog": {

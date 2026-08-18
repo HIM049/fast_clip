@@ -3,9 +3,9 @@
 - version 1.1
   - [x] Linux support
   - [ ] Player optmize
-    - [ ] optmize render state machine
+    - [x] optmize render state machine
     - [ ] resolution downscaling
-  - [ ] Key map
+  - [x] Key map
   - [ ] Key binding
 
 - version 1.0

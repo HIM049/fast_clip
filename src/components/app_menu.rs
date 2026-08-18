@@ -2,8 +2,13 @@ use gpui::{Action, App, BorrowAppContext, Entity, Menu, MenuItem, SharedString, 
 use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
 use rust_i18n::t;
 
-use crate::config::{self, AppConfig, Language};
-use crate::ui::player::settings::PlayerSettings;
+use crate::{
+    config::{
+        self,
+        file::{AppConfig, Language},
+    },
+    ui::player::settings::PlayerSettings,
+};
 
 actions!(
     menu,
@@ -11,6 +16,7 @@ actions!(
         Quit,
         Settings,
         About,
+        Help,
         Open,
         Close,
         Output,
@@ -51,7 +57,7 @@ pub fn init(
                 cx.update_global(|g: &mut AppConfig, _| {
                     g.language = language;
                     // TODO: handle auto save in config
-                    if let Err(err) = config::save(g) {
+                    if let Err(err) = config::file::save(g) {
                         println!("failed to save config: {}", err);
                     }
                 });
@@ -105,6 +111,7 @@ fn build_menus(
             disabled: false,
             items: vec![
                 MenuItem::action(t!("menu.application.about"), About),
+                MenuItem::action(t!("menu.application.help"), Help),
                 MenuItem::action(t!("menu.application.settings"), Settings),
                 language_menu(),
                 MenuItem::Separator,

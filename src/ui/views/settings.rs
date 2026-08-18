@@ -11,7 +11,7 @@ use rust_i18n::t;
 use strum::IntoEnumIterator;
 
 use crate::{
-    config::{AppConfig, GpuPolicy, StepMode},
+    config::file::{AppConfig, GpuPolicy, StepMode},
     ui::{player::utils, views::settings},
 };
 

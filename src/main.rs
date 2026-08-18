@@ -6,12 +6,12 @@ use gpui_component::*;
 use rust_i18n::t;
 
 use crate::{
-    components::app_menu::{About, Open, Output, Quit, Settings},
-    config::AppConfig,
+    components::app_menu::{About, Help, Open, Output, Quit, Settings},
+    config::{file::AppConfig, keymap},
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
-        views::{self, app::MyApp, settings::SettingsView},
+        views::{self, app::MyApp, help::HelpView, settings::SettingsView},
     },
 };
 use reqwest_client;
@@ -26,11 +26,6 @@ rust_i18n::i18n!("locales", fallback = "en");
 actions!([
     Back, Forward, SwitchPlay, ToRangeA, ToRangeB, SetStart, SetEnd, VolumeUp, VolumeDown
 ]);
-
-#[cfg(target_os = "macos")]
-static OUTPUT_KEY: &str = "cmd-s";
-#[cfg(not(target_os = "macos"))]
-static OUTPUT_KEY: &str = "ctrl-s";
 
 fn main() {
     ffmpeg_next::init().unwrap();
@@ -47,7 +42,7 @@ fn main() {
         init_theme(cx);
         bind_keys(cx);
 
-        let config = config::load();
+        let config = config::file::load();
         rust_i18n::set_locale(&config.language.as_locale());
         cx.set_global(config);
 
@@ -92,6 +87,7 @@ fn main() {
             cx.quit();
         });
         cx.on_action(open_settings_window(window_state.clone()));
+        cx.on_action(open_help_window(window_state.clone()));
         cx.on_action(open_about_dialog(app_window.clone()));
         cx.on_action(open_output_dialog(
             app_window.clone(),
@@ -141,14 +137,14 @@ fn main() {
 }
 
 fn bind_keys(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("space", SwitchPlay, None)]);
-    cx.bind_keys([KeyBinding::new("left", Back, None)]);
-    cx.bind_keys([KeyBinding::new("right", Forward, None)]);
-    cx.bind_keys([KeyBinding::new("[", SetStart, None)]);
-    cx.bind_keys([KeyBinding::new("]", SetEnd, None)]);
-    cx.bind_keys([KeyBinding::new("up", VolumeUp, None)]);
-    cx.bind_keys([KeyBinding::new("down", VolumeDown, None)]);
-    cx.bind_keys([KeyBinding::new(OUTPUT_KEY, Output, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::PLAY_PAUSE, SwitchPlay, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::SEEK_BACKWARD, Back, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::SEEK_FORWARD, Forward, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::SET_RANGE_START, SetStart, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::SET_RANGE_END, SetEnd, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::VOLUME_UP, VolumeUp, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::VOLUME_DOWN, VolumeDown, None)]);
+    cx.bind_keys([KeyBinding::new(keymap::EXPORT, Output, None)]);
 }
 
 fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings, &mut App) {
@@ -183,6 +179,42 @@ fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings,
                 )
                 .unwrap();
             ws.settings_handle = Some(handle);
+        });
+    }
+}
+
+fn open_help_window(window_state: Entity<WindowState>) -> impl Fn(&Help, &mut App) {
+    move |_: &Help, cx| {
+        window_state.update(cx, |ws, cx| {
+            if active_window(cx, &mut ws.help_handle).is_ok() {
+                return;
+            }
+
+            let window_bounds = Some(WindowBounds::Windowed(Bounds::centered(
+                None,
+                size(px(600.), px(450.)),
+                cx,
+            )));
+            let handle = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds,
+                        titlebar: Some(TitlebarOptions {
+                            title: Some(t!("menu.application.help").into()),
+                            appears_transparent: false,
+                            traffic_light_position: None,
+                        }),
+                        focus: true,
+                        show: true,
+                        ..Default::default()
+                    },
+                    |window, cx| {
+                        let view = cx.new(|_| HelpView::new());
+                        cx.new(|cx| Root::new(view, window, cx))
+                    },
+                )
+                .unwrap();
+            ws.help_handle = Some(handle);
         });
     }
 }

@@ -9,6 +9,7 @@
   "menu": {
     "application": {
       "about": "关于软件",
+      "help": "快捷键帮助",
       "settings": "设置",
       "language": "语言",
       "quit": "退出"
@@ -72,6 +73,26 @@
     "seek_seconds": {
       "title": "跳转秒数",
       "description": "前进或后退时跳过的秒数。"
+    }
+  },
+  "help": {
+    "title": "帮助",
+    "playback": {
+      "title": "播放控制",
+      "play_desc": "播放或暂停",
+      "back_desc": "快速后退",
+      "forward_desc": "快速前进",
+      "volume_up_desc": "增大音量",
+      "volume_down_desc": "减小音量"
+    },
+    "range": {
+      "title": "选区",
+      "set_start_desc": "设置选区起点",
+      "set_end_desc": "设置选区终点"
+    },
+    "export": {
+      "title": "导出",
+      "export_desc": "打开导出对话框"
     }
   },
   "update_dialog": {
