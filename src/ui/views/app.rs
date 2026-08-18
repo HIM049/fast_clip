@@ -13,7 +13,7 @@ use gpui_component::{
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
     components::app_menu::{self, ClearSelectedRange, Close},
-    config::file::AppConfig,
+    config::settings::AppConfig,
     models::model::OutputParams,
     ui::{
         button::RoundButton,

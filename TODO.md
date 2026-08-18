@@ -6,7 +6,7 @@
     - [x] optmize render state machine
     - [ ] resolution downscaling
   - [x] Key map
-  - [ ] Key binding
+  - [x] Key binding
 
 - version 1.0
   - [x] video play

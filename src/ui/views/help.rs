@@ -5,7 +5,7 @@ use gpui::{
 use gpui_component::{ActiveTheme as _, StyledExt, TitleBar, kbd::Kbd, label::Label};
 use rust_i18n::t;
 
-use crate::config::keymap;
+use crate::config::keybinding::KeymapConfig;
 
 pub struct HelpView;
 
@@ -42,34 +42,34 @@ impl Render for HelpView {
                                 div().w_full().flex().justify_start(),
                                 // .child(Label::new(t!("help.title")).font_bold().text_2xl()),
                             )
-                            .children(sections()),
+                            .children(sections(&cx.global::<KeymapConfig>())),
                     ),
             )
     }
 }
 
-fn sections() -> Vec<AnyElement> {
+fn sections(keymap: &KeymapConfig) -> Vec<AnyElement> {
     vec![
         section(
             t!("help.playback.title"),
             vec![
-                shortcut_row("help.playback.play_desc", keymap::PLAY_PAUSE),
-                shortcut_row("help.playback.back_desc", keymap::SEEK_BACKWARD),
-                shortcut_row("help.playback.forward_desc", keymap::SEEK_FORWARD),
-                shortcut_row("help.playback.volume_up_desc", keymap::VOLUME_UP),
-                shortcut_row("help.playback.volume_down_desc", keymap::VOLUME_DOWN),
+                shortcut_row("help.playback.play_desc", &keymap.play_pause),
+                shortcut_row("help.playback.back_desc", &keymap.seek_backward),
+                shortcut_row("help.playback.forward_desc", &keymap.seek_forward),
+                shortcut_row("help.playback.volume_up_desc", &keymap.volume_up),
+                shortcut_row("help.playback.volume_down_desc", &keymap.volume_down),
             ],
         ),
         section(
             t!("help.range.title"),
             vec![
-                shortcut_row("help.range.set_start_desc", keymap::SET_RANGE_START),
-                shortcut_row("help.range.set_end_desc", keymap::SET_RANGE_END),
+                shortcut_row("help.range.set_start_desc", &keymap.set_range_start),
+                shortcut_row("help.range.set_end_desc", &keymap.set_range_end),
             ],
         ),
         section(
             t!("help.export.title"),
-            vec![shortcut_row("help.export.export_desc", keymap::EXPORT)],
+            vec![shortcut_row("help.export.export_desc", &keymap.export)],
         ),
     ]
 }

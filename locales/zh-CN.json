@@ -73,6 +73,10 @@
     "seek_seconds": {
       "title": "跳转秒数",
       "description": "前进或后退时跳过的秒数。"
+    },
+    "keybindings": {
+      "title": "快捷键",
+      "restart_note": "重启后生效"
     }
   },
   "help": {

@@ -7,7 +7,7 @@ use rust_i18n::t;
 
 use crate::{
     components::app_menu::{About, Help, Open, Output, Quit, Settings},
-    config::{file::AppConfig, keymap},
+    config::{keybinding::KeymapConfig, settings::AppConfig},
     models::model::{OutputParams, WindowState},
     ui::{
         player::size::PlayerSize,
@@ -40,11 +40,12 @@ fn main() {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
         init_theme(cx);
-        bind_keys(cx);
 
-        let config = config::file::load();
+        let (config, keymap) = config::load_all();
         rust_i18n::set_locale(&config.language.as_locale());
         cx.set_global(config);
+        cx.set_global(keymap);
+        bind_keys(cx);
 
         // let config_entity: Entity<AppConfig> = cx.new(|_| config);
 
@@ -137,14 +138,27 @@ fn main() {
 }
 
 fn bind_keys(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new(keymap::PLAY_PAUSE, SwitchPlay, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::SEEK_BACKWARD, Back, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::SEEK_FORWARD, Forward, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::SET_RANGE_START, SetStart, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::SET_RANGE_END, SetEnd, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::VOLUME_UP, VolumeUp, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::VOLUME_DOWN, VolumeDown, None)]);
-    cx.bind_keys([KeyBinding::new(keymap::EXPORT, Output, None)]);
+    let keymap = cx.global::<KeymapConfig>().clone();
+    cx.bind_keys([KeyBinding::new(
+        keymap.play_pause.as_str(),
+        SwitchPlay,
+        None,
+    )]);
+    cx.bind_keys([KeyBinding::new(keymap.seek_backward.as_str(), Back, None)]);
+    cx.bind_keys([KeyBinding::new(keymap.seek_forward.as_str(), Forward, None)]);
+    cx.bind_keys([KeyBinding::new(
+        keymap.set_range_start.as_str(),
+        SetStart,
+        None,
+    )]);
+    cx.bind_keys([KeyBinding::new(keymap.set_range_end.as_str(), SetEnd, None)]);
+    cx.bind_keys([KeyBinding::new(keymap.volume_up.as_str(), VolumeUp, None)]);
+    cx.bind_keys([KeyBinding::new(
+        keymap.volume_down.as_str(),
+        VolumeDown,
+        None,
+    )]);
+    cx.bind_keys([KeyBinding::new(keymap.export.as_str(), Output, None)]);
 }
 
 fn open_settings_window(window_state: Entity<WindowState>) -> impl Fn(&Settings, &mut App) {

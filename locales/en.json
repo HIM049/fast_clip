@@ -73,6 +73,10 @@
     "seek_seconds": {
       "title": "Seek Seconds",
       "description": "Seconds to skip when seeking forward or backward."
+    },
+    "keybindings": {
+      "title": "Keybindings",
+      "restart_note": "Takes effect after restart"
     }
   },
   "help": {

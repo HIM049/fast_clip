@@ -5,7 +5,7 @@ use rust_i18n::t;
 use crate::{
     config::{
         self,
-        file::{AppConfig, Language},
+        settings::{AppConfig, Language},
     },
     ui::player::settings::PlayerSettings,
 };
@@ -56,8 +56,7 @@ pub fn init(
             if let Some(language) = Language::from_locale(locale) {
                 cx.update_global(|g: &mut AppConfig, _| {
                     g.language = language;
-                    // TODO: handle auto save in config
-                    if let Err(err) = config::file::save(g) {
+                    if let Err(err) = config::settings::save(g) {
                         println!("failed to save config: {}", err);
                     }
                 });

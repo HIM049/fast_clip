@@ -11,7 +11,10 @@ use rust_i18n::t;
 use strum::IntoEnumIterator;
 
 use crate::{
-    config::file::{AppConfig, GpuPolicy, StepMode},
+    config::{
+        keybinding::KeymapConfig,
+        settings::{AppConfig, GpuPolicy, StepMode},
+    },
     ui::{player::utils, views::settings},
 };
 
@@ -63,6 +66,7 @@ impl Render for SettingsView {
                                         .title(text("settings.groups.control"))
                                         .items(build_control_group(cx, window_handler)),
                                 ),
+                            build_keybinding_page(window_handler),
                         ]),
                 ),
             )
@@ -200,6 +204,92 @@ fn build_control_group(cx: &mut App, window_handler: AnyWindowHandle) -> Vec<Set
         // )
         // .description("Used only as a temporary example value."),
     ]
+}
+
+fn keybinding_item(
+    window: AnyWindowHandle,
+    title_key: &'static str,
+    value: impl Fn(&App) -> SharedString + 'static,
+    apply: impl Fn(&mut KeymapConfig, String) + 'static,
+) -> SettingItem {
+    SettingItem::new(
+        text(title_key),
+        SettingField::input(value, move |new_value: SharedString, cx: &mut App| {
+            cx.update_global(|g: &mut KeymapConfig, cx| {
+                apply(g, new_value.trim().to_string());
+                push_result_notify(cx, window, g.save());
+            });
+        }),
+    )
+}
+
+fn build_keybinding_page(window_handler: AnyWindowHandle) -> SettingPage {
+    SettingPage::new(text("settings.keybindings.title"))
+        .description(text("settings.keybindings.restart_note"))
+        .group(
+            SettingGroup::new()
+                .title(text("help.playback.title"))
+                .items(vec![
+                    keybinding_item(
+                        window_handler,
+                        "help.playback.play_desc",
+                        |cx| cx.global::<KeymapConfig>().play_pause.clone().into(),
+                        |g, v| g.play_pause = v,
+                    ),
+                    keybinding_item(
+                        window_handler,
+                        "help.playback.back_desc",
+                        |cx| cx.global::<KeymapConfig>().seek_backward.clone().into(),
+                        |g, v| g.seek_backward = v,
+                    ),
+                    keybinding_item(
+                        window_handler,
+                        "help.playback.forward_desc",
+                        |cx| cx.global::<KeymapConfig>().seek_forward.clone().into(),
+                        |g, v| g.seek_forward = v,
+                    ),
+                    keybinding_item(
+                        window_handler,
+                        "help.playback.volume_up_desc",
+                        |cx| cx.global::<KeymapConfig>().volume_up.clone().into(),
+                        |g, v| g.volume_up = v,
+                    ),
+                    keybinding_item(
+                        window_handler,
+                        "help.playback.volume_down_desc",
+                        |cx| cx.global::<KeymapConfig>().volume_down.clone().into(),
+                        |g, v| g.volume_down = v,
+                    ),
+                ]),
+        )
+        .group(
+            SettingGroup::new()
+                .title(text("help.range.title"))
+                .items(vec![
+                    keybinding_item(
+                        window_handler,
+                        "help.range.set_start_desc",
+                        |cx| cx.global::<KeymapConfig>().set_range_start.clone().into(),
+                        |g, v| g.set_range_start = v,
+                    ),
+                    keybinding_item(
+                        window_handler,
+                        "help.range.set_end_desc",
+                        |cx| cx.global::<KeymapConfig>().set_range_end.clone().into(),
+                        |g, v| g.set_range_end = v,
+                    ),
+                ]),
+        )
+        .group(
+            SettingGroup::new()
+                .title(text("help.export.title"))
+                .items(vec![keybinding_item(
+                    window_handler,
+                    "help.export.export_desc",
+                    |cx| cx.global::<KeymapConfig>().export.clone().into(),
+                    |g, v| g.export = v,
+                )]),
+        )
 }
 
 fn text(key: &str) -> SharedString {
