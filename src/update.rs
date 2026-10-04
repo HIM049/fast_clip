@@ -3,11 +3,11 @@ use std::{env, sync::Arc};
 use anyhow::Context;
 use futures::AsyncReadExt;
 
-use gpui::{
+use gpui_kit::component::WindowExt;
+use gpui_kit::{
     http_client::{AsyncBody, HttpClient},
     *,
 };
-use gpui_component::WindowExt;
 use rust_i18n::t;
 use semver::Version;
 use serde_json::Value;

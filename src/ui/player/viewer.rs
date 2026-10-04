@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use app_assets::icons::rounded;
-use gpui::{
+use gpui_kit::{
     Bounds, Corners, Element, Entity, IntoElement, LayoutId, Pixels, Point, RenderImage, Size,
     Style, TransformationMatrix, px, relative,
 };
@@ -29,7 +29,7 @@ impl Element for Viewer {
 
     type PrepaintState = Bounds<Pixels>;
 
-    fn id(&self) -> Option<gpui::ElementId> {
+    fn id(&self) -> Option<gpui_kit::ElementId> {
         None
     }
 
@@ -39,11 +39,11 @@ impl Element for Viewer {
 
     fn request_layout(
         &mut self,
-        _: Option<&gpui::GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
-    ) -> (gpui::LayoutId, Self::RequestLayoutState) {
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
+    ) -> (gpui_kit::LayoutId, Self::RequestLayoutState) {
         let mut style = Style::default();
 
         style.size.width = relative(1.0).into();
@@ -55,12 +55,12 @@ impl Element for Viewer {
 
     fn prepaint(
         &mut self,
-        _: Option<&gpui::GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
-        bounds: gpui::Bounds<gpui::Pixels>,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        bounds: gpui_kit::Bounds<gpui_kit::Pixels>,
         _: &mut Self::RequestLayoutState,
-        _: &mut gpui::Window,
-        cx: &mut gpui::App,
+        _: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
     ) -> Self::PrepaintState {
         let w = bounds.size.width.to_f64().round() as u32;
         let h = bounds.size.height.to_f64().round() as u32;
@@ -87,13 +87,13 @@ impl Element for Viewer {
 
     fn paint(
         &mut self,
-        _: Option<&gpui::GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
-        bounds: gpui::Bounds<gpui::Pixels>,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        bounds: gpui_kit::Bounds<gpui_kit::Pixels>,
         _: &mut Self::RequestLayoutState,
         b: &mut Self::PrepaintState,
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
     ) {
         window
             .paint_image(*b, *b, Corners::all(px(0.0)), self.frame.clone(), 0, false)
@@ -112,7 +112,7 @@ impl Element for Viewer {
                     rounded::SPEED_2.into(),
                     None,
                     TransformationMatrix::unit(),
-                    gpui::red(),
+                    gpui_kit::red(),
                     cx,
                 )
                 .unwrap();

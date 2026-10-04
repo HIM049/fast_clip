@@ -1,4 +1,4 @@
-use gpui::{Global, Keystroke};
+use gpui_kit::{Global, Keystroke};
 use serde::{Deserialize, Serialize};
 
 use super::utils::{load_json, save_json};

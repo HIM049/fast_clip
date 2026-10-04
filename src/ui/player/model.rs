@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use gpui::{RenderImage, SharedString};
-use gpui_component::select::SelectItem;
+use gpui_kit::component::select::SelectItem;
+use gpui_kit::{RenderImage, SharedString};
 
 pub struct FrameImage {
     pub image: Arc<RenderImage>,
@@ -28,7 +28,7 @@ pub struct AudioRail {
 impl SelectItem for AudioRail {
     type Value = usize;
 
-    fn title(&self) -> gpui::SharedString {
+    fn title(&self) -> gpui_kit::SharedString {
         let name = match self.handler_name.clone() {
             Some(n) => n,
             None => "_".into(),

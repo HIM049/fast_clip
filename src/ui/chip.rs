@@ -1,8 +1,8 @@
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Colorize, StyledExt};
+use gpui_kit::{
     Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled, div,
     prelude::FluentBuilder, svg,
 };
-use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 #[derive(IntoElement)]
 pub struct Chip {
@@ -58,7 +58,11 @@ impl Chip {
 }
 
 impl RenderOnce for Chip {
-    fn render(self, _: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
+    fn render(
+        self,
+        _: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
+    ) -> impl gpui_kit::IntoElement {
         let bg_color = self.color.unwrap_or(cx.theme().background.darken(0.5));
         let font_color = cx.theme().foreground;
         div()
@@ -76,7 +80,7 @@ impl RenderOnce for Chip {
                         .path(path)
                         .size_6()
                         // .when(self.small_icon, |this| this.size_5())
-                        .text_color(gpui::white().alpha(0.8)),
+                        .text_color(gpui_kit::white().alpha(0.8)),
                 )
             })
             .when(self.bold, |this| this.font_bold())
@@ -84,7 +88,7 @@ impl RenderOnce for Chip {
                 this.font_family(cx.theme().mono_font_family.clone())
             })
             .when(self.border, |this| {
-                this.border_1().border_color(gpui::white().alpha(0.3))
+                this.border_1().border_color(gpui_kit::white().alpha(0.3))
             })
             .when_some(self.label, |div, label| {
                 div.child(label).text_color(font_color)

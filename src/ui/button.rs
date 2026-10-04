@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Colorize, StyledExt};
+use gpui_kit::{
     AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Transformation,
     Window, div, percentage, prelude::FluentBuilder, rgba, svg,
 };
-use gpui_component::{ActiveTheme, Colorize, StyledExt};
 
 #[derive(IntoElement)]
 pub struct RoundButton {
@@ -83,7 +83,11 @@ impl RoundButton {
 }
 
 impl RenderOnce for RoundButton {
-    fn render(self, _: &mut gpui::Window, cx: &mut gpui::App) -> impl gpui::IntoElement {
+    fn render(
+        self,
+        _: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
+    ) -> impl gpui_kit::IntoElement {
         // let bg_color = self.color.unwrap_or(rgba(0xffffff40).into());
         let bg_color = self.color.unwrap_or(cx.theme().foreground.alpha(0.25));
         let border_color = cx.theme().foreground.alpha(0.30);
@@ -120,7 +124,7 @@ impl RenderOnce for RoundButton {
                                         ))
                                     })
                                     .when(self.small_icon, |this| this.size_5())
-                                    .text_color(gpui::white().alpha(0.8)),
+                                    .text_color(gpui_kit::white().alpha(0.8)),
                             )
                         })
                         .when_some(self.child, |this, child| this.child(child))

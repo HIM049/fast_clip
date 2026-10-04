@@ -1,4 +1,4 @@
-use gpui::Global;
+use gpui_kit::Global;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use strum_macros::EnumIter;
 

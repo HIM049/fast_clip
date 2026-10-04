@@ -1,11 +1,11 @@
-use gpui::{
-    AnyWindowHandle, App, AppContext, BorrowAppContext, Context, Decorations, IntoElement,
-    ParentElement, Render, SharedString, Styled, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     StyledExt, TitleBar, WindowExt,
     notification::{Notification, NotificationType},
     setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
+};
+use gpui_kit::{
+    AnyWindowHandle, App, AppContext, BorrowAppContext, Context, Decorations, IntoElement,
+    ParentElement, Render, SharedString, Styled, div, px,
 };
 use rust_i18n::t;
 use strum::IntoEnumIterator;
@@ -15,7 +15,7 @@ use crate::{
         keybinding::KeymapConfig,
         settings::{AppConfig, GpuPolicy, StepMode},
     },
-    ui::{player::utils, views::settings},
+    ui::views::settings,
 };
 
 struct SettingsSaveNotification;
@@ -29,8 +29,7 @@ impl SettingsView {
 }
 
 impl Render for SettingsView {
-    fn render(&mut self, w: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let notify_layer = utils::render_notification_layer(w, cx);
+    fn render(&mut self, w: &mut gpui_kit::Window, cx: &mut Context<Self>) -> impl IntoElement {
         let window_handler = w.window_handle();
         let title_bar = (cfg!(target_os = "linux")
             && matches!(w.window_decorations(), Decorations::Client { .. }))
@@ -40,37 +39,32 @@ impl Render for SettingsView {
                 .child(t!("menu.application.settings"))
         });
 
-        div()
-            .size_full()
-            .v_flex()
-            .children(title_bar)
-            .child(
-                div().flex_1().min_h_0().child(
-                    Settings::new("app-settings")
-                        .sidebar_width(px(100.))
-                        .pages(vec![
-                            SettingPage::new(text("settings.general"))
-                                .default_open(true)
-                                .group(
-                                    SettingGroup::new()
-                                        .title(text("settings.groups.application"))
-                                        .items(build_general_group(window_handler)),
-                                )
-                                .group(
-                                    SettingGroup::new()
-                                        .title(text("settings.groups.player"))
-                                        .items(build_player_group(window_handler)),
-                                )
-                                .group(
-                                    SettingGroup::new()
-                                        .title(text("settings.groups.control"))
-                                        .items(build_control_group(cx, window_handler)),
-                                ),
-                            build_keybinding_page(window_handler),
-                        ]),
-                ),
-            )
-            .children(notify_layer)
+        div().size_full().v_flex().children(title_bar).child(
+            div().flex_1().min_h_0().child(
+                Settings::new("app-settings")
+                    .sidebar_width(px(100.))
+                    .pages(vec![
+                        SettingPage::new(text("settings.general"))
+                            .default_open(true)
+                            .group(
+                                SettingGroup::new()
+                                    .title(text("settings.groups.application"))
+                                    .items(build_general_group(window_handler)),
+                            )
+                            .group(
+                                SettingGroup::new()
+                                    .title(text("settings.groups.player"))
+                                    .items(build_player_group(window_handler)),
+                            )
+                            .group(
+                                SettingGroup::new()
+                                    .title(text("settings.groups.control"))
+                                    .items(build_control_group(cx, window_handler)),
+                            ),
+                        build_keybinding_page(window_handler),
+                    ]),
+            ),
+        )
     }
 }
 

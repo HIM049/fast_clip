@@ -27,7 +27,7 @@ use ffmpeg_next::{
         scaling::{self},
     },
 };
-use gpui::{Context, Entity, SharedString};
+use gpui_kit::{Context, Entity, SharedString};
 use ringbuf::{
     HeapProd,
     traits::{Observer, Producer},

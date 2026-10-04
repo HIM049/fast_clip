@@ -1,13 +1,13 @@
 use std::{ops::Range, path::PathBuf, time::Duration};
 
 use app_assets::icons::{self, rounded};
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Colorize, StyledExt, TitleBar, WindowExt, menu::AppMenuBar,
+};
+use gpui_kit::{
     AnyElement, AppContext, Context, Entity, ExternalPaths, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Task, Window, div,
     prelude::FluentBuilder, px, rgba, svg,
-};
-use gpui_component::{
-    ActiveTheme, Colorize, Root, StyledExt, TitleBar, WindowExt, menu::AppMenuBar,
 };
 
 use crate::{
@@ -22,7 +22,6 @@ use crate::{
             player::{PlayState, Player},
             settings::PlayerSettings,
             size::PlayerSize,
-            utils,
         },
         timeline::Timeline,
     },
@@ -241,9 +240,6 @@ impl MyApp {
 impl Render for MyApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bg_color = cx.theme().background.darken(0.5);
-        let dialog_layer = Root::render_dialog_layer(window, cx);
-        let sheet_layer = Root::render_sheet_layer(window, cx);
-        let notify_layer = utils::render_notification_layer(window, cx);
 
         if self.player.get_state() != PlayState::Stopped {
             if !window.has_active_dialog(cx) && !window.has_active_sheet(cx) {
@@ -319,9 +315,6 @@ impl Render for MyApp {
                         control_area(self, cx),
                     ),
             )
-            .children(dialog_layer)
-            .children(sheet_layer)
-            .children(notify_layer)
     }
 }
 
@@ -491,8 +484,8 @@ fn message_box(msg: impl IntoElement, icon: Option<String>) -> AnyElement {
         .min_w(px(170.))
         .absolute()
         .border_1()
-        .border_color(gpui::white())
-        .bg(gpui::black().alpha(0.7))
+        .border_color(gpui_kit::white())
+        .bg(gpui_kit::black().alpha(0.7))
         .rounded_sm()
         .px_10()
         .py_6()
@@ -500,7 +493,7 @@ fn message_box(msg: impl IntoElement, icon: Option<String>) -> AnyElement {
         .gap_2()
         .when_some(icon, |this, icon| {
             this.justify_between()
-                .child(svg().path(icon).size_8().text_color(gpui::white()))
+                .child(svg().path(icon).size_8().text_color(gpui_kit::white()))
         })
         .child(msg)
         .into_any_element()
@@ -576,7 +569,7 @@ fn format_sec(sec: f64) -> String {
 }
 
 impl Focusable for MyApp {
-    fn focus_handle(&self, _: &gpui::App) -> gpui::FocusHandle {
+    fn focus_handle(&self, _: &gpui_kit::App) -> gpui_kit::FocusHandle {
         self.focus_handle.clone()
     }
 }

@@ -4,10 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gpui::{
-    App, AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     Disableable, IndexPath, StyledExt, WindowExt,
     button::{Button, ButtonVariants},
     checkbox::Checkbox,
@@ -16,6 +13,9 @@ use gpui_component::{
     label::Label,
     notification::Notification,
     select::{Select, SelectState},
+};
+use gpui_kit::{
+    App, AppContext, ClickEvent, Context, Entity, ParentElement, Render, Styled, Window, div, px,
 };
 use path_absolutize::Absolutize;
 use rust_i18n::t;
@@ -36,8 +36,8 @@ pub struct OutputView {
 
 impl OutputView {
     pub fn new(
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
         params: Entity<OutputParams>,
     ) -> Self {
         let p = params.read(cx);
@@ -84,7 +84,10 @@ impl OutputView {
         }
     }
 
-    fn output_job(&self, cx: &gpui::App) -> Option<(PathBuf, PathBuf, usize, usize, Range<f64>)> {
+    fn output_job(
+        &self,
+        cx: &gpui_kit::App,
+    ) -> Option<(PathBuf, PathBuf, usize, usize, Range<f64>)> {
         let param = self.params.read(cx);
         if !param.all_some() {
             return None;
@@ -129,9 +132,9 @@ impl OutputView {
 impl Render for OutputView {
     fn render(
         &mut self,
-        w: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) -> impl gpui::IntoElement {
+        w: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
         if self.update_path {
             self.input.update(cx, |i, cx| {
                 let path = self.output_path.to_string_lossy().into_owned();

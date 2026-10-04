@@ -1,8 +1,8 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 use std::{env, rc::Rc, sync::Arc};
 
-use gpui::*;
-use gpui_component::*;
+use gpui_kit::component::*;
+use gpui_kit::*;
 use rust_i18n::t;
 
 use crate::{
@@ -14,7 +14,6 @@ use crate::{
         views::{self, app::MyApp, help::HelpView, settings::SettingsView},
     },
 };
-use reqwest_client;
 mod components;
 mod config;
 mod models;
@@ -35,10 +34,10 @@ fn main() {
     )
     .unwrap();
 
-    let app = gpui_platform::application().with_assets(app_assets::Assets);
+    let app = gpui_kit::application().with_assets(app_assets::Assets);
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
-        gpui_component::init(cx);
+        gpui_kit::init(cx);
         init_theme(cx);
 
         let (config, keymap) = config::load_all();
@@ -65,7 +64,7 @@ fn main() {
                     titlebar: Some(TitlebarOptions {
                         title: Some("Fast Clip".into()),
                         appears_transparent: true,
-                        traffic_light_position: Some(gpui::point(px(9.0), px(9.0))),
+                        traffic_light_position: Some(gpui_kit::point(px(9.0), px(9.0))),
                     }),
                     show: true,
                     ..Default::default()
@@ -95,7 +94,7 @@ fn main() {
             params_entity.clone(),
         ));
         cx.on_action(move |_: &Open, cx| {
-            let result = cx.prompt_for_paths(gpui::PathPromptOptions {
+            let result = cx.prompt_for_paths(gpui_kit::PathPromptOptions {
                 files: true,
                 directories: false,
                 multiple: false,
@@ -272,17 +271,19 @@ fn open_about_dialog(window: AnyWindowHandle) -> impl Fn(&About, &mut App) {
 const DEFAULT_THEME: &str = include_str!("../themes/macos-classic.json");
 
 fn init_theme(cx: &mut App) {
-    let theme_set = serde_json::from_str::<ThemeSet>(DEFAULT_THEME).unwrap();
+    let theme_set =
+        serde_json::from_str::<ThemeSet>(DEFAULT_THEME).expect("invalid bundled theme file");
 
-    let theme = Theme::global_mut(cx);
-    for theme_cfg in theme_set.themes {
-        let theme_rc = Rc::new(theme_cfg);
-        if theme_rc.mode.is_dark() {
-            theme.apply_config(&theme_rc);
+    Theme::update(cx, |theme| {
+        for theme_cfg in &theme_set.themes {
+            if theme_cfg.mode.is_dark() {
+                theme.apply_config(&Rc::new(theme_cfg.clone()));
+            }
         }
-    }
-    theme.notification.placement = Anchor::TopCenter;
-    theme.notification.max_items = 1;
+
+        theme.notification.placement = Anchor::TopCenter;
+        theme.notification.max_items = 1;
+    });
 }
 
 fn active_window(cx: &mut App, win_handle: &mut Option<WindowHandle<Root>>) -> Result<(), ()> {

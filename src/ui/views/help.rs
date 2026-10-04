@@ -1,8 +1,8 @@
-use gpui::{
+use gpui_kit::component::{ActiveTheme as _, StyledExt, TitleBar, kbd::Kbd, label::Label};
+use gpui_kit::{
     AnyElement, Context, Decorations, InteractiveElement, IntoElement, Keystroke, ParentElement,
     Render, SharedString, StatefulInteractiveElement, Styled, Window, div,
 };
-use gpui_component::{ActiveTheme as _, StyledExt, TitleBar, kbd::Kbd, label::Label};
 use rust_i18n::t;
 
 use crate::config::keybinding::KeymapConfig;

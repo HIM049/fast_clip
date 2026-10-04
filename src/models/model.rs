@@ -1,7 +1,7 @@
 use std::{ops::Range, path::PathBuf};
 
-use gpui::{App, WindowHandle};
-use gpui_component::Root;
+use gpui_kit::component::Root;
+use gpui_kit::{App, WindowHandle};
 
 use crate::ui::player::model::AudioRail;
 

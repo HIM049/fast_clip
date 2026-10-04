@@ -10,7 +10,7 @@ use std::{
 };
 
 use atomic_float::AtomicF32;
-use gpui::{Context, Entity, RenderImage, Window};
+use gpui_kit::{Context, Entity, RenderImage, Window};
 use ringbuf::{
     HeapCons, HeapProd,
     storage::Heap,

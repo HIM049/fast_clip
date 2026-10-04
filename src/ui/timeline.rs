@@ -1,6 +1,6 @@
 use std::{ops::Range, sync::Arc};
 
-use gpui::{
+use gpui_kit::{
     AbsoluteLength, App, BorderStyle, Bounds, Corners, DefiniteLength, Element, ElementId, Hsla,
     IntoElement, LayoutId, Length, MouseButton, MouseDownEvent, Path, Pixels, Point, Size, Style,
     Window, point, px, quad, relative, rgb, size,
@@ -30,7 +30,7 @@ impl Timeline {
         self
     }
 
-    fn indicator_width(&self, b: gpui::Bounds<gpui::Pixels>) -> Pixels {
+    fn indicator_width(&self, b: gpui_kit::Bounds<gpui_kit::Pixels>) -> Pixels {
         (b.size.width * self.percent).round()
     }
 }
@@ -40,7 +40,7 @@ impl Element for Timeline {
 
     type PrepaintState = ();
 
-    fn id(&self) -> Option<gpui::ElementId> {
+    fn id(&self) -> Option<gpui_kit::ElementId> {
         Some(self.id.clone())
     }
 
@@ -50,11 +50,11 @@ impl Element for Timeline {
 
     fn request_layout(
         &mut self,
-        _: Option<&gpui::GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
-        window: &mut gpui::Window,
-        cx: &mut gpui::App,
-    ) -> (gpui::LayoutId, Self::RequestLayoutState) {
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::App,
+    ) -> (gpui_kit::LayoutId, Self::RequestLayoutState) {
         let mut style = Style::default();
 
         style.size.width = relative(1.0).into();
@@ -67,25 +67,25 @@ impl Element for Timeline {
 
     fn prepaint(
         &mut self,
-        _: Option<&gpui::GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
-        bounds: gpui::Bounds<gpui::Pixels>,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        bounds: gpui_kit::Bounds<gpui_kit::Pixels>,
         _: &mut Self::RequestLayoutState,
-        _: &mut gpui::Window,
-        _: &mut gpui::App,
+        _: &mut gpui_kit::Window,
+        _: &mut gpui_kit::App,
     ) -> Self::PrepaintState {
         self.origin_point = point(bounds.origin.x, bounds.origin.y + px(20.))
     }
 
     fn paint(
         &mut self,
-        _: Option<&gpui::GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
-        bounds: gpui::Bounds<gpui::Pixels>,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        bounds: gpui_kit::Bounds<gpui_kit::Pixels>,
         _: &mut Self::RequestLayoutState,
         _: &mut Self::PrepaintState,
-        window: &mut gpui::Window,
-        _: &mut gpui::App,
+        window: &mut gpui_kit::Window,
+        _: &mut gpui_kit::App,
     ) {
         let scale = window.scale_factor();
 
@@ -114,7 +114,7 @@ impl Element for Timeline {
             Corners::default(),
             base_unplay,
             px(0.),
-            gpui::white(),
+            gpui_kit::white(),
             BorderStyle::default(),
         ));
         // timebase played
@@ -129,7 +129,7 @@ impl Element for Timeline {
             Corners::default(),
             base_played,
             px(0.),
-            gpui::white(),
+            gpui_kit::white(),
             BorderStyle::default(),
         ));
 
@@ -164,7 +164,7 @@ impl Element for Timeline {
                     Corners::default(),
                     selected_unplay,
                     px(0.),
-                    gpui::white(),
+                    gpui_kit::white(),
                     BorderStyle::default(),
                 ));
                 // played range
@@ -179,7 +179,7 @@ impl Element for Timeline {
                     Corners::default(),
                     selected_played,
                     px(0.),
-                    gpui::white(),
+                    gpui_kit::white(),
                     BorderStyle::default(),
                 ));
             }
@@ -202,7 +202,7 @@ impl Element for Timeline {
             &self.origin_point,
             base_h,
             indi_x,
-            gpui::white(),
+            gpui_kit::white(),
         );
 
         let mouse_pos = window.mouse_position();
@@ -213,7 +213,7 @@ impl Element for Timeline {
                 &self.origin_point,
                 base_h,
                 mouse_pos.x,
-                gpui::white().alpha(0.5),
+                gpui_kit::white().alpha(0.5),
             );
         }
 
@@ -303,7 +303,7 @@ fn paint_dashline(window: &mut Window, x: Pixels, y_start: Pixels, color: impl I
             Corners::default(),
             color,
             px(0.),
-            gpui::white(),
+            gpui_kit::white(),
             BorderStyle::default(),
         ));
 

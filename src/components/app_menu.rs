@@ -1,5 +1,5 @@
-use gpui::{Action, App, BorrowAppContext, Entity, Menu, MenuItem, SharedString, actions};
-use gpui_component::{GlobalState, Theme, menu::AppMenuBar};
+use gpui_kit::component::{GlobalState, Theme, menu::AppMenuBar};
+use gpui_kit::{Action, App, BorrowAppContext, Entity, Menu, MenuItem, SharedString, actions};
 use rust_i18n::t;
 
 use crate::{

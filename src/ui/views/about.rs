@@ -1,11 +1,11 @@
 use app_assets::icons::rounded;
-use gpui::{ImageSource, ParentElement, Resource, Styled, div, img, px};
-use gpui_component::{
+use gpui_kit::component::{
     Icon, StyledExt,
     button::{Button, ButtonVariants},
     dialog::Dialog,
     label::Label,
 };
+use gpui_kit::{ImageSource, ParentElement, Resource, Styled, div, img, px};
 use rust_i18n::t;
 
 pub fn build_about(dialog: Dialog) -> Dialog {
