@@ -1,8 +1,9 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
-use std::{env, rc::Rc, sync::Arc};
+use std::{env, path::PathBuf, rc::Rc, sync::Arc};
 
 use gpui_kit::component::*;
 use gpui_kit::*;
+use path_absolutize::Absolutize;
 use rust_i18n::t;
 
 use crate::{
@@ -82,6 +83,17 @@ fn main() {
             )
             .unwrap()
             .into();
+
+        // Startup with file arg
+        if let Some(path) = env::args_os().nth(1).map(PathBuf::from)
+            && let Ok(path) = path.absolutize().map(|p| p.into_owned())
+            && path.is_file()
+        {
+            params_entity.update(cx, |p, cx| {
+                p.path = Some(path);
+                cx.notify();
+            });
+        }
 
         cx.on_action(|_: &Quit, cx| {
             cx.quit();
