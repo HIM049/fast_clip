@@ -70,7 +70,7 @@ jobs:
 
   macos:
     name: macOS arm64
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -91,9 +91,9 @@ jobs:
       - name: Install FFmpeg
         id: ffmpeg
         run: |
-          brew install ffmpeg
-          echo "prefix=$(brew --prefix ffmpeg)" >> "$GITHUB_OUTPUT"
-          echo "version=$(brew info --json=v2 ffmpeg | jq -r '.formulae[0].installed[0].version')" >> "$GITHUB_OUTPUT"
+          brew install ffmpeg@8
+          echo "prefix=$(brew --prefix ffmpeg@8)" >> "$GITHUB_OUTPUT"
+          echo "version=$(brew info --json=v2 ffmpeg@8 | jq -r '.formulae[0].installed[0].version')" >> "$GITHUB_OUTPUT"
 
       - name: Restore Cargo cache
         uses: actions/cache@v4
