@@ -630,11 +630,7 @@ impl VideoDecoder {
 
                     if let Some((t, forward, key)) = seek {
                         let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
-                        let range = if forward {
-                            ts..i64::MAX
-                        } else {
-                            i64::MIN..ts
-                        };
+                        let range = if forward { ts..i64::MAX } else { i64::MIN..ts };
                         let mut result = input.seek(ts, range);
                         if result.is_err() && forward {
                             // no key frame after ts, fall back to the last key frame
@@ -658,6 +654,8 @@ impl VideoDecoder {
                         a_decoder.flush();
                         video_pkt_queue.clear();
                         audio_pkt_queue.clear();
+                        next_video_frame = None;
+                        next_audio_sample = None;
 
                         // create new resampler
                         resampler = Self::create_resampler(
@@ -939,12 +937,9 @@ fn handle_video(
                 queue.push_front(p);
             }
             Err(error) if hardware_pixel_format.is_some() => {
-                queue.push_front(p);
                 return VideoDecodeResult::HardwareStartupFailed(error);
             }
-            Err(_) => {
-                queue.push_front(p);
-            }
+            Err(error) => eprintln!("video packet dropped: {error}"),
         }
 
         let received_frame: &mut Video = if hardware_pixel_format.is_some() {
@@ -1036,8 +1031,12 @@ fn handle_audio(
 ) -> Option<Vec<f32>> {
     // push if some audio packet
     if let Some(p) = queue.pop_front() {
-        if decoder.send_packet(&p).is_err() {
-            queue.push_front(p);
+        match decoder.send_packet(&p) {
+            Ok(()) => {}
+            Err(Error::Other { errno }) if errno == ffmpeg_next::error::EAGAIN => {
+                queue.push_front(p);
+            }
+            Err(error) => eprintln!("audio packet dropped: {error}"),
         }
     }
     if decoder.receive_frame(decoded_audio).is_ok() {
@@ -1055,6 +1054,9 @@ fn handle_audio(
                 // break;
             }
         }
+    } else {
+        // nothing resampled
+        return None;
     }
     if resampled_audio.samples() > 0 {
         let raw_samples: &[f32] = unsafe {
