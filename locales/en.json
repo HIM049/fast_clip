@@ -30,6 +30,19 @@
       "clear_selected_range": "Clear Selected Range"
     }
   },
+  "editor": {
+    "toolbar": {
+      "play_pause": "Play / Pause",
+      "rewind": "Rewind",
+      "forward": "Forward",
+      "prev_keyframe": "Last Keyframe",
+      "next_keyframe": "Next Keyframe",
+      "set_start": "Set Selection Start",
+      "set_end": "Set Selection End",
+      "go_to_start": "To Selection Start",
+      "go_to_end": "To Selection End"
+    }
+  },
   "output": {
     "title": "Export",
     "path": "Output Path",

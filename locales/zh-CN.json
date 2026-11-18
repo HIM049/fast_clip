@@ -30,6 +30,19 @@
       "clear_selected_range": "清除选区范围"
     }
   },
+  "editor": {
+    "toolbar": {
+      "play_pause": "播放 / 暂停",
+      "rewind": "后退",
+      "forward": "前进",
+      "prev_keyframe": "上一关键帧",
+      "next_keyframe": "下一关键帧",
+      "set_start": "设为选区起点",
+      "set_end": "设为选区终点",
+      "go_to_start": "跳到选区起点",
+      "go_to_end": "跳到选区终点"
+    }
+  },
   "output": {
     "title": "导出",
     "path": "输出路径",

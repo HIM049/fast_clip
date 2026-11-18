@@ -9,6 +9,7 @@ use gpui_kit::{
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Task, Window, div,
     prelude::FluentBuilder, px, rgba, svg,
 };
+use rust_i18n::t;
 
 use crate::{
     Back, Forward, SetEnd, SetStart, SwitchPlay, VolumeDown, VolumeUp,
@@ -357,6 +358,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         .gap_2()
                         .child(
                             RoundButton::new("switch_play")
+                                .tooltip(t!("editor.toolbar.play_pause"), Some(&SwitchPlay))
                                 .blue()
                                 .when_else(
                                     play_state != PlayState::Playing,
@@ -367,17 +369,20 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("go-back")
+                                .tooltip(t!("editor.toolbar.rewind"), Some(&Back))
                                 .icon_path(icons::rounded::FAST_FOWARD)
                                 .flip_x()
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Back), cx)),
                         )
                         .child(
                             RoundButton::new("go-forward")
+                                .tooltip(t!("editor.toolbar.forward"), Some(&Forward))
                                 .icon_path(icons::rounded::FAST_FOWARD)
                                 .on_click(|_, w, cx| w.dispatch_action(Box::new(Forward), cx)),
                         )
                         .child(
                             RoundButton::new("last-key")
+                                .tooltip(t!("editor.toolbar.prev_keyframe"), None)
                                 .icon_path(icons::rounded::SKIP_NEXT)
                                 .flip_x()
                                 .on_click(cx.listener(|this, _, _, cx| {
@@ -387,6 +392,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("next-key")
+                                .tooltip(t!("editor.toolbar.next_keyframe"), None)
                                 .icon_path(icons::rounded::SKIP_NEXT)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.player.next_key();
@@ -395,6 +401,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("set-start")
+                                .tooltip(t!("editor.toolbar.set_start"), Some(&SetStart))
                                 .icon_path(icons::rounded::SELECTED_START)
                                 .small_icon()
                                 .yellow()
@@ -402,6 +409,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("set-end")
+                                .tooltip(t!("editor.toolbar.set_end"), Some(&SetEnd))
                                 .icon_path(icons::rounded::SELECTED_START)
                                 .flip_x()
                                 .small_icon()
@@ -410,6 +418,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("to-beginning")
+                                .tooltip(t!("editor.toolbar.go_to_start"), None)
                                 .icon_path(icons::rounded::SELECTED_START_ARROW)
                                 .small_icon()
                                 .on_click(cx.listener(|this, _, _, cx| {
@@ -421,6 +430,7 @@ fn control_area(this: &mut MyApp, cx: &mut Context<MyApp>) -> AnyElement {
                         )
                         .child(
                             RoundButton::new("to-end")
+                                .tooltip(t!("editor.toolbar.go_to_end"), None)
                                 .icon_path(icons::rounded::SELECTED_START_ARROW)
                                 .flip_x()
                                 .small_icon()

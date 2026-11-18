@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
-use gpui_kit::component::{ActiveTheme, Colorize, StyledExt};
+use gpui_kit::component::{ActiveTheme, Colorize, StyledExt, tooltip::Tooltip};
 use gpui_kit::{
-    AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, Stateful, StatefulInteractiveElement, Styled, Transformation,
-    Window, div, percentage, prelude::FluentBuilder, rgba, svg,
+    Action, AnyElement, App, ClickEvent, Div, ElementId, Hsla, InteractiveElement, IntoElement,
+    ParentElement, RenderOnce, SharedString, Stateful, StatefulInteractiveElement, Styled,
+    Transformation, Window, div, percentage, prelude::FluentBuilder, rgba, svg,
 };
 
 #[derive(IntoElement)]
@@ -17,6 +17,8 @@ pub struct RoundButton {
     small_icon: bool,
     flip_x: bool,
     child: Option<AnyElement>,
+    tooltip: Option<SharedString>,
+    tooltip_action: Option<Box<dyn Action>>,
 }
 
 impl RoundButton {
@@ -30,7 +32,16 @@ impl RoundButton {
             small_icon: false,
             flip_x: false,
             child: None,
+            tooltip: None,
+            tooltip_action: None,
         }
+    }
+
+    /// Sets a tooltip that also shows the key binding of the given action.
+    pub fn tooltip(mut self, text: impl Into<SharedString>, action: Option<&dyn Action>) -> Self {
+        self.tooltip = Some(text.into());
+        self.tooltip_action = action.map(|t| t.boxed_clone());
+        self
     }
 
     pub fn color(mut self, color: impl Into<Hsla>) -> Self {
@@ -131,6 +142,16 @@ impl RenderOnce for RoundButton {
                         .when_some(self.label, |this, label| this.child(label)),
                 ),
             )
+            .when_some(self.tooltip, |div: Stateful<Div>, text| {
+                let action = self.tooltip_action;
+                div.tooltip(move |window, cx| {
+                    Tooltip::new(text.clone())
+                        .when_some(action.as_ref(), |tip, action| {
+                            tip.action(action.as_ref(), None)
+                        })
+                        .build(window, cx)
+                })
+            })
             .when_some(self.on_click, |div: Stateful<Div>, on_click| {
                 div.on_click(
                     move |event: &ClickEvent, window: &mut Window, cx: &mut App| {
