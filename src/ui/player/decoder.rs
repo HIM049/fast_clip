@@ -604,6 +604,8 @@ impl VideoDecoder {
             let mut resampled_audio = ffmpeg_next::frame::Audio::empty();
 
             let mut seeking_to: Option<f64> = None;
+            // take the first key packet after seek as seek target
+            let mut wait_key_packet = false;
             let mut seek_state = (false, false);
             let mut is_read_finished = false;
             let mut first_video_frame_pushed = false;
@@ -613,48 +615,42 @@ impl VideoDecoder {
                     let mut need_flash = false;
                     // handle decoder event
                     let mut event = event.lock().unwrap();
-                    match *event {
-                        DecoderEvent::None => (),
+                    let seek = match *event {
+                        DecoderEvent::None => None,
                         DecoderEvent::Stop => break,
                         DecoderEvent::Pause => {
                             let _event = condvar.wait(event).unwrap();
                             continue;
                         }
-                        DecoderEvent::Seek(t) => {
-                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
-                            if let Err(e) = input.seek(ts, ..ts) {
-                                eprintln!("video seek failed: {e}");
-                                continue;
-                            }
+                        DecoderEvent::Seek(t) => Some((t, false, false)),
+                        DecoderEvent::LastKey(t) => Some((t, false, true)),
+                        DecoderEvent::NextKey(t) => Some((t, true, true)),
+                    };
+                    *event = DecoderEvent::None;
 
-                            is_read_finished = false;
-                            seeking_to = Some(t);
-                            seek_state = (false, false);
-                            need_flash = true;
+                    if let Some((t, forward, key)) = seek {
+                        let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
+                        let range = if forward {
+                            ts..i64::MAX
+                        } else {
+                            i64::MIN..ts
+                        };
+                        let mut result = input.seek(ts, range);
+                        if result.is_err() && forward {
+                            // no key frame after ts, fall back to the last key frame
+                            result = input.seek(ts, i64::MIN..ts);
                         }
-                        DecoderEvent::LastKey(t) => {
-                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
-                            if let Err(e) = input.seek(ts, ..ts) {
-                                eprintln!("video seek failed: {e}");
-                                continue;
+                        match result {
+                            Ok(()) => {
+                                is_read_finished = false;
+                                seeking_to = Some(t);
+                                wait_key_packet = key;
+                                seek_state = (false, false);
+                                need_flash = true;
                             }
-
-                            is_read_finished = false;
-                            seeking_to = Some(t);
-                            seek_state = (false, false);
-                            need_flash = true;
-                        }
-                        DecoderEvent::NextKey(t) => {
-                            let ts = (ffmpeg_next::sys::AV_TIME_BASE as f64 * t) as i64;
-                            if let Err(e) = input.seek(ts, ts..) {
+                            Err(e) => {
                                 eprintln!("video seek failed: {e}");
-                                continue;
                             }
-
-                            is_read_finished = false;
-                            seeking_to = Some(t);
-                            seek_state = (false, false);
-                            need_flash = true;
                         }
                     }
                     if need_flash {
@@ -675,7 +671,6 @@ impl VideoDecoder {
                             a_producer.set_write_index(a_producer.read_index());
                         }
                     }
-                    *event = DecoderEvent::None;
                 }
                 // if no enough pkts, read from file
                 while !is_read_finished
@@ -684,6 +679,15 @@ impl VideoDecoder {
                     // read packets
                     if let Some((stream, packet)) = input.packets().next() {
                         if stream.index() == video_ix {
+                            if wait_key_packet && packet.is_key() {
+                                if let Some(pts) = packet.pts().or(packet.dts()) {
+                                    seeking_to = Some(
+                                        pts as f64 * time_base.numerator() as f64
+                                            / time_base.denominator() as f64,
+                                    );
+                                    wait_key_packet = false;
+                                }
+                            }
                             video_pkt_queue.push_back(packet);
                         } else if stream.index() == audio_ix {
                             audio_pkt_queue.push_back(packet);
